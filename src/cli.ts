@@ -3,6 +3,7 @@ import type { BenchmarkOptions, BrowserName } from './types.ts'
 
 const defaults: BenchmarkOptions = {
   versions: ['latest'],
+  recentVersions: null,
   iterations: 5,
   warmups: 1,
   timeout: 60_000,
@@ -27,6 +28,14 @@ const parsePositiveInteger = (value: string, flag: string): number => {
   const parsed = Number.parseInt(value, 10)
   if (!Number.isFinite(parsed) || parsed < 0 || `${parsed}` !== value) {
     throw new Error(`${flag} must be a non-negative integer`)
+  }
+  return parsed
+}
+
+const parseIntegerAtLeast = (value: string, flag: string, minimum: number): number => {
+  const parsed = parsePositiveInteger(value, flag)
+  if (parsed < minimum) {
+    throw new Error(`${flag} must be at least ${minimum}`)
   }
   return parsed
 }
@@ -58,11 +67,23 @@ const parseBrowser = (value: string): BrowserName => {
 
 export const parseArgs = (argv: readonly string[]): BenchmarkOptions => {
   let options = { ...defaults }
+  let hasVersions = false
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     switch (arg) {
       case '--versions':
+        if (options.recentVersions !== null) {
+          throw new Error('--versions cannot be used with --recent-versions')
+        }
+        hasVersions = true
         options = { ...options, versions: parseVersions(takeValue(argv, i, arg)) }
+        i++
+        break
+      case '--recent-versions':
+        if (hasVersions) {
+          throw new Error('--recent-versions cannot be used with --versions')
+        }
+        options = { ...options, recentVersions: parseIntegerAtLeast(takeValue(argv, i, arg), arg, 1) }
         i++
         break
       case '--iterations':
@@ -118,6 +139,8 @@ export const getHelpText = (): string => {
 
 Options:
   --versions <csv>     @lvce-editor/server versions or tags (default: latest)
+  --recent-versions <n>
+                       Resolve and benchmark the latest n published versions
   --iterations <n>     Measured iterations per version (default: 5)
   --warmups <n>        Warmup iterations per version (default: 1)
   --timeout <ms>       Navigation/server startup timeout (default: 60000)

@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       versions:
-        description: '@lvce-editor/server versions or tags'
+        description: '@lvce-editor/server versions or tags. Leave empty to use recent_versions.'
         required: false
-        default: latest
+        default: ''
+      recent_versions:
+        description: 'Number of latest published @lvce-editor/server versions to benchmark'
+        required: false
+        default: '100'
       iterations:
         description: 'Measured iterations per version'
         required: false
@@ -24,32 +28,102 @@ on:
           - 'true'
           - 'false'
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.report.outputs.pages }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
+      - name: Resolve benchmark versions
+        id: benchmark-versions
+        env:
+          VERSIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.versions || '' }}
+          RECENT_VERSIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.recent_versions || '100' }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { createHash } from 'node:crypto'
+          import { appendFile } from 'node:fs/promises'
+          import { getRecentPublishedVersions } from './src/versions.ts'
+
+          const explicitVersions = process.env.VERSIONS?.split(',').map((version) => version.trim()).filter(Boolean) ?? []
+          const recentVersionCount = Number.parseInt(process.env.RECENT_VERSIONS || '100', 10)
+          const versions = explicitVersions.length === 0 ? await getRecentPublishedVersions(recentVersionCount) : explicitVersions
+          const serialized = versions.join(',')
+          const hash = createHash('sha256').update(serialized).digest('hex')
+
+          await appendFile(process.env.GITHUB_OUTPUT, `versions=${serialized}\n`)
+          await appendFile(process.env.GITHUB_OUTPUT, `hash=${hash}\n`)
+          EOF
+      - uses: actions/cache@v5
+        id: server-store-cache
+        with:
+          path: .tmp/server-store
+          key: ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-${{ steps.benchmark-versions.outputs.hash }}
+          restore-keys: |
+            ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-
+            ${{ runner.os }}-node24-server-store-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run type-check
       - name: Run benchmark
+        env:
+          VERSIONS: ${{ steps.benchmark-versions.outputs.versions }}
+          ITERATIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.iterations || '3' }}
+          PROFILE: ${{ github.event_name == 'pull_request' && 'false' || github.event.inputs.profile || 'true' }}
         run: |
           PROFILE_FLAG=""
-          if [ "${{ github.event.inputs.profile || 'true' }}" = "true" ]; then
+          if [ "$PROFILE" = "true" ]; then
             PROFILE_FLAG="--profile"
           fi
           npm run benchmark -- \
-            --versions "${{ github.event.inputs.versions || 'latest' }}" \
-            --iterations "${{ github.event.inputs.iterations || '3' }}" \
+            --versions "$VERSIONS" \
+            --iterations "$ITERATIONS" \
             --warmups 1 \
             --output results \
             $PROFILE_FLAG
+      - name: Generate Pages report
+        id: report
+        if: always()
+        run: |
+          if [ -f results/summary.json ]; then
+            npm run report -- --input results --output .tmp/pages
+            echo "pages=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: lvce-startup-benchmark-results
           path: results/**
+      - name: Upload Pages artifact
+        if: always() && steps.report.outputs.pages == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .tmp/pages
+
+  deploy:
+    if: always() && needs.benchmark.outputs.pages == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.benchmark.result != 'cancelled'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: benchmark
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

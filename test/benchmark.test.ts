@@ -8,6 +8,7 @@ import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer }
 
 const getOptions = (output: string): BenchmarkOptions => ({
   versions: ['mock-version'],
+  recentVersions: null,
   iterations: 1,
   warmups: 1,
   timeout: 1000,
@@ -72,7 +73,7 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
       performanceMetrics: [],
     })
     const result = await runBenchmark(getOptions(dir), {
-      prepareServer: async () => prepared,
+      prepareServers: async () => new Map([[prepared.version, prepared]]),
       startServer: async () => running,
       measureStartup,
     })

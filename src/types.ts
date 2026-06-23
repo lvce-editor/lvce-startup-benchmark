@@ -4,6 +4,7 @@ export type BrowserName = 'chromium'
 
 export interface BenchmarkOptions {
   readonly versions: readonly string[]
+  readonly recentVersions: number | null
   readonly iterations: number
   readonly warmups: number
   readonly timeout: number
@@ -21,6 +22,7 @@ export interface PreparedServer {
   readonly safeVersion: string
   readonly packageDir: string
   readonly binaryPath: string
+  readonly binaryArgs?: readonly string[]
 }
 
 export interface RunningServer {

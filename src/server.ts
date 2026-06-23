@@ -52,7 +52,7 @@ export const startServer = async (
   const port = await findFreePort(options.portBase)
   const baseUrl = `http://localhost:${port}`
   const url = new URL(options.urlPath, baseUrl).toString()
-  const child = spawn(prepared.binaryPath, [options.workspace], {
+  const child = spawn(prepared.binaryPath, [...(prepared.binaryArgs ?? []), options.workspace], {
     cwd: prepared.packageDir,
     env: { ...process.env, PORT: String(port) },
     detached: process.platform !== 'win32',
