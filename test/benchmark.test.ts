@@ -73,7 +73,7 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
       performanceMetrics: [],
     })
     const result = await runBenchmark(getOptions(dir), {
-      prepareServer: async () => prepared,
+      prepareServers: async () => new Map([[prepared.version, prepared]]),
       startServer: async () => running,
       measureStartup,
     })

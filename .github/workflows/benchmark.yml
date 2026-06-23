@@ -48,13 +48,40 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - name: Resolve benchmark versions
+        id: benchmark-versions
+        env:
+          VERSIONS: ${{ github.event.inputs.versions || '' }}
+          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '100' }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { createHash } from 'node:crypto'
+          import { appendFile } from 'node:fs/promises'
+          import { getRecentPublishedVersions } from './src/versions.ts'
+
+          const explicitVersions = process.env.VERSIONS?.split(',').map((version) => version.trim()).filter(Boolean) ?? []
+          const recentVersionCount = Number.parseInt(process.env.RECENT_VERSIONS || '100', 10)
+          const versions = explicitVersions.length === 0 ? await getRecentPublishedVersions(recentVersionCount) : explicitVersions
+          const serialized = versions.join(',')
+          const hash = createHash('sha256').update(serialized).digest('hex')
+
+          await appendFile(process.env.GITHUB_OUTPUT, `versions=${serialized}\n`)
+          await appendFile(process.env.GITHUB_OUTPUT, `hash=${hash}\n`)
+          EOF
+      - uses: actions/cache@v5
+        id: server-store-cache
+        with:
+          path: .tmp/server-store
+          key: ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-${{ steps.benchmark-versions.outputs.hash }}
+          restore-keys: |
+            ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-
+            ${{ runner.os }}-node24-server-store-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run type-check
       - name: Run benchmark
         env:
-          VERSIONS: ${{ github.event.inputs.versions || '' }}
-          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '100' }}
+          VERSIONS: ${{ steps.benchmark-versions.outputs.versions }}
           ITERATIONS: ${{ github.event.inputs.iterations || '3' }}
           PROFILE: ${{ github.event.inputs.profile || 'true' }}
         run: |
@@ -62,12 +89,8 @@ jobs:
           if [ "$PROFILE" = "true" ]; then
             PROFILE_FLAG="--profile"
           fi
-          VERSION_FLAGS=(--recent-versions "$RECENT_VERSIONS")
-          if [ -n "$VERSIONS" ]; then
-            VERSION_FLAGS=(--versions "$VERSIONS")
-          fi
           npm run benchmark -- \
-            "${VERSION_FLAGS[@]}" \
+            --versions "$VERSIONS" \
             --iterations "$ITERATIONS" \
             --warmups 1 \
             --output results \

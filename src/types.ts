@@ -22,6 +22,7 @@ export interface PreparedServer {
   readonly safeVersion: string
   readonly packageDir: string
   readonly binaryPath: string
+  readonly binaryArgs?: readonly string[]
 }
 
 export interface RunningServer {

@@ -1,5 +1,5 @@
 import { mkdir } from 'node:fs/promises'
-import { prepareServerPackage } from './packageManager.ts'
+import { prepareServerPackages } from './packageManager.ts'
 import { startServer } from './server.ts'
 import { measureStartup } from './measure.ts'
 import { getRawResultPath, writeSummary, writeVersionResult } from './results.ts'
@@ -7,7 +7,7 @@ import { summarizeVersion } from './summary.ts'
 import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer, VersionResult, VersionSummary } from './types.ts'
 
 export interface BenchmarkDependencies {
-  readonly prepareServer?: (version: string) => Promise<PreparedServer>
+  readonly prepareServers?: (versions: readonly string[]) => Promise<ReadonlyMap<string, PreparedServer>>
   readonly startServer?: (prepared: PreparedServer, options: BenchmarkOptions) => Promise<RunningServer>
   readonly measureStartup?: (
     version: string,
@@ -25,7 +25,7 @@ export interface BenchmarkRunResult {
 }
 
 const defaultDependencies: Required<BenchmarkDependencies> = {
-  prepareServer: (version) => prepareServerPackage(version),
+  prepareServers: (versions) => prepareServerPackages(versions),
   startServer: (prepared, options) => startServer(prepared, options),
   measureStartup,
 }
@@ -36,11 +36,15 @@ export const runBenchmark = async (
 ): Promise<BenchmarkRunResult> => {
   const deps = { ...defaultDependencies, ...dependencies }
   await mkdir(options.output, { recursive: true })
+  console.info(`[benchmark] preparing ${options.versions.length} server version${options.versions.length === 1 ? '' : 's'}`)
+  const preparedServers = await deps.prepareServers(options.versions)
   const versionResults: VersionResult[] = []
   const summaries: VersionSummary[] = []
   for (const version of options.versions) {
-    console.info(`[benchmark] preparing @lvce-editor/server@${version}`)
-    const prepared = await deps.prepareServer(version)
+    const prepared = preparedServers.get(version)
+    if (!prepared) {
+      throw new Error(`Missing prepared server for ${version}`)
+    }
     console.info(`[benchmark] starting server for ${version}`)
     const running = await deps.startServer(prepared, options)
     const results: IterationResult[] = []
