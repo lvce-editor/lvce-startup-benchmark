@@ -8,9 +8,13 @@ on:
   workflow_dispatch:
     inputs:
       versions:
-        description: '@lvce-editor/server versions or tags'
+        description: '@lvce-editor/server versions or tags. Leave empty to use recent_versions.'
         required: false
-        default: latest
+        default: ''
+      recent_versions:
+        description: 'Number of latest published @lvce-editor/server versions to benchmark'
+        required: false
+        default: '100'
       iterations:
         description: 'Measured iterations per version'
         required: false
@@ -24,9 +28,20 @@ on:
           - 'true'
           - 'false'
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.report.outputs.pages }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -37,19 +52,55 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run type-check
       - name: Run benchmark
+        env:
+          VERSIONS: ${{ github.event.inputs.versions || '' }}
+          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '100' }}
+          ITERATIONS: ${{ github.event.inputs.iterations || '3' }}
+          PROFILE: ${{ github.event.inputs.profile || 'true' }}
         run: |
           PROFILE_FLAG=""
-          if [ "${{ github.event.inputs.profile || 'true' }}" = "true" ]; then
+          if [ "$PROFILE" = "true" ]; then
             PROFILE_FLAG="--profile"
           fi
+          VERSION_FLAGS=(--recent-versions "$RECENT_VERSIONS")
+          if [ -n "$VERSIONS" ]; then
+            VERSION_FLAGS=(--versions "$VERSIONS")
+          fi
           npm run benchmark -- \
-            --versions "${{ github.event.inputs.versions || 'latest' }}" \
-            --iterations "${{ github.event.inputs.iterations || '3' }}" \
+            "${VERSION_FLAGS[@]}" \
+            --iterations "$ITERATIONS" \
             --warmups 1 \
             --output results \
             $PROFILE_FLAG
+      - name: Generate Pages report
+        id: report
+        if: always()
+        run: |
+          if [ -f results/summary.json ]; then
+            npm run report -- --input results --output .tmp/pages
+            echo "pages=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v5
         if: always()
         with:
           name: lvce-startup-benchmark-results
           path: results/**
+      - name: Upload Pages artifact
+        if: always() && steps.report.outputs.pages == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .tmp/pages
+
+  deploy:
+    if: always() && needs.benchmark.outputs.pages == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.benchmark.result != 'cancelled'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: benchmark
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

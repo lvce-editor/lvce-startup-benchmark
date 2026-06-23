@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "benchmark": "tsx src/main.ts",
+    "report": "tsx src/report.ts",
     "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "type-check": "tsc --noEmit"
   },

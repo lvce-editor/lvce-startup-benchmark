@@ -8,6 +8,7 @@ import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer }
 
 const getOptions = (output: string): BenchmarkOptions => ({
   versions: ['mock-version'],
+  recentVersions: null,
   iterations: 1,
   warmups: 1,
   timeout: 1000,

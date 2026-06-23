@@ -1,10 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { runCommand } from './process.ts'
+import { serverPackageName } from './versions.ts'
 import { getSafeVersionName } from './versionPaths.ts'
 import type { PreparedServer } from './types.ts'
-
-const packageName = '@lvce-editor/server'
 
 export const prepareServerPackage = async (version: string, rootDir = process.cwd()): Promise<PreparedServer> => {
   const safeVersion = getSafeVersionName(version)
@@ -22,7 +21,7 @@ export const prepareServerPackage = async (version: string, rootDir = process.cw
       2,
     )}\n`,
   )
-  await runCommand('npm', ['install', '--omit=dev', `${packageName}@${version}`], { cwd: packageDir })
+  await runCommand('npm', ['install', '--omit=dev', `${serverPackageName}@${version}`], { cwd: packageDir })
   return {
     version,
     safeVersion,

@@ -7,6 +7,7 @@ npm ci
 npx playwright install chromium
 npm run benchmark -- --versions latest --iterations 5 --warmups 1
 npm run benchmark -- --versions 0.84.7,0.84.6 --profile
+npm run benchmark -- --recent-versions 100 --iterations 3
 ```
 
 The benchmark installs each requested server version into `.tmp/servers/<version>`,
@@ -32,6 +33,7 @@ npm run benchmark -- [options]
 Options:
 
 - `--versions <csv>`: npm versions or tags of `@lvce-editor/server`
+- `--recent-versions <n>`: resolve and benchmark the latest `n` published versions
 - `--iterations <n>`: measured iterations per version
 - `--warmups <n>`: warmup iterations per version
 - `--timeout <ms>`: navigation and server startup timeout
