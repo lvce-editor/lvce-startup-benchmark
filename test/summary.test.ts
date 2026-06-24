@@ -29,6 +29,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       domNodeCount: 999,
       domCounters: { documents: 9, nodes: 999, jsEventListeners: 99 },
       heapUsage: { usedSize: 999, totalSize: 1999 },
+      loadedResourceSizes: { resources: 99, transferSize: 999, encodedBodySize: 999, decodedBodySize: 999 },
     },
     {
       ...base,
@@ -40,6 +41,13 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       domNodeCount: 10,
       domCounters: { documents: 1, nodes: 10, jsEventListeners: 2 },
       heapUsage: { usedSize: 100, totalSize: 200 },
+      loadedResourceSizes: { resources: 3, transferSize: 600, encodedBodySize: 500, decodedBodySize: 900 },
+      performanceMetrics: [
+        { name: 'ScriptDuration', value: 0.012 },
+        { name: 'TaskDuration', value: 0.034 },
+        { name: 'LayoutDuration', value: 0.002 },
+        { name: 'RecalcStyleDuration', value: 0.003 },
+      ],
     },
     {
       ...base,
@@ -51,6 +59,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       domNodeCount: null,
       domCounters: null,
       heapUsage: null,
+      loadedResourceSizes: null,
       error: 'boom',
     },
   ]
@@ -60,4 +69,12 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
   assert.equal(summary.loadTimeMs.mean, 180)
   assert.equal(summary.domNodes.mean, 10)
   assert.equal(summary.heapUsed.mean, 100)
+  assert.equal(summary.transferSize.mean, 600)
+  assert.equal(summary.encodedBodySize.mean, 500)
+  assert.equal(summary.decodedBodySize.mean, 900)
+  assert.equal(summary.resources.mean, 3)
+  assert.equal(summary.scriptDurationMs.mean, 12)
+  assert.equal(summary.taskDurationMs.mean, 34)
+  assert.equal(summary.layoutDurationMs.mean, 2)
+  assert.equal(summary.recalcStyleDurationMs.mean, 3)
 })

@@ -1,7 +1,15 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { chromium, type CDPSession } from 'playwright'
-import type { BenchmarkOptions, DomCounters, IterationResult, NavigationTiming, PerformanceMetric, RuntimeHeapUsage } from './types.ts'
+import { chromium, type CDPSession, type Page } from 'playwright'
+import type {
+  BenchmarkOptions,
+  DomCounters,
+  IterationResult,
+  LoadedResourceSizes,
+  NavigationTiming,
+  PerformanceMetric,
+  RuntimeHeapUsage,
+} from './types.ts'
 
 const toNavigationTiming = (value: Record<string, unknown> | undefined): NavigationTiming | null => {
   if (!value) {
@@ -25,6 +33,30 @@ const getPerformanceMetrics = (metrics: readonly { readonly name: string; readon
     name: metric.name,
     value: metric.value,
   }))
+}
+
+const getLoadedResourceSizes = async (page: Page): Promise<LoadedResourceSizes> => {
+  return page.evaluate(() => {
+    const navigationEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
+    const resourceEntries = performance.getEntriesByType('resource') as PerformanceResourceTiming[]
+    const entries = [...navigationEntries, ...resourceEntries]
+    const totals = entries.reduce(
+      (total, entry) => ({
+        transferSize: total.transferSize + (Number(entry.transferSize) || 0),
+        encodedBodySize: total.encodedBodySize + (Number(entry.encodedBodySize) || 0),
+        decodedBodySize: total.decodedBodySize + (Number(entry.decodedBodySize) || 0),
+      }),
+      {
+        transferSize: 0,
+        encodedBodySize: 0,
+        decodedBodySize: 0,
+      },
+    )
+    return {
+      resources: resourceEntries.length,
+      ...totals,
+    }
+  })
 }
 
 const readProtocolStream = async (cdp: CDPSession, stream: string): Promise<string> => {
@@ -92,6 +124,7 @@ export const measureStartup = async (
       }),
     )
     const domNodeCount = await page.evaluate(() => document.querySelectorAll('*').length)
+    const loadedResourceSizes = await getLoadedResourceSizes(page).catch(() => null)
     const domCounters = (await cdp.send('Memory.getDOMCounters').catch(() => null)) as DomCounters | null
     const heapUsage = (await cdp.send('Runtime.getHeapUsage').catch(() => null)) as RuntimeHeapUsage | null
     const performanceMetricsResult = (await cdp.send('Performance.getMetrics').catch(() => ({ metrics: [] }))) as {
@@ -108,6 +141,7 @@ export const measureStartup = async (
       domNodeCount,
       domCounters,
       heapUsage,
+      loadedResourceSizes,
       performanceMetrics: getPerformanceMetrics(performanceMetricsResult.metrics),
       ...(tracePath ? { tracePath } : {}),
     }
@@ -123,6 +157,7 @@ export const measureStartup = async (
       domNodeCount: null,
       domCounters: null,
       heapUsage: null,
+      loadedResourceSizes: null,
       performanceMetrics: [],
       error: error instanceof Error ? error.stack || error.message : String(error),
       ...(tracePath ? { tracePath } : {}),

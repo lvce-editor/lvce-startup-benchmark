@@ -70,7 +70,16 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
         usedSize: 1000,
         totalSize: 2000,
       },
-      performanceMetrics: [],
+      loadedResourceSizes: {
+        resources: 3,
+        transferSize: 600,
+        encodedBodySize: 500,
+        decodedBodySize: 900,
+      },
+      performanceMetrics: [
+        { name: 'ScriptDuration', value: 0.012 },
+        { name: 'TaskDuration', value: 0.034 },
+      ],
     })
     const result = await runBenchmark(getOptions(dir), {
       prepareServers: async () => new Map([[prepared.version, prepared]]),
@@ -78,6 +87,8 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
       measureStartup,
     })
     assert.equal(result.summaries[0]?.loadTimeMs.mean, 120)
+    assert.equal(result.summaries[0]?.transferSize.mean, 600)
+    assert.equal(result.summaries[0]?.scriptDurationMs.mean, 12)
     const raw = JSON.parse(await readFile(join(dir, 'raw', 'mock-version.json'), 'utf8')) as { readonly results: readonly unknown[] }
     assert.equal(raw.results.length, 2)
     const summary = await readFile(join(dir, 'summary.md'), 'utf8')

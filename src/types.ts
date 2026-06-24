@@ -49,6 +49,13 @@ export interface RuntimeHeapUsage {
   readonly totalSize: number
 }
 
+export interface LoadedResourceSizes {
+  readonly resources: number
+  readonly transferSize: number
+  readonly encodedBodySize: number
+  readonly decodedBodySize: number
+}
+
 export interface DomCounters {
   readonly documents: number
   readonly nodes: number
@@ -71,6 +78,7 @@ export interface IterationResult {
   readonly domNodeCount: number | null
   readonly domCounters: DomCounters | null
   readonly heapUsage: RuntimeHeapUsage | null
+  readonly loadedResourceSizes: LoadedResourceSizes | null
   readonly performanceMetrics: readonly PerformanceMetric[]
   readonly tracePath?: string
   readonly error?: string
@@ -95,10 +103,20 @@ export interface VersionSummary {
   readonly iterations: number
   readonly failures: number
   readonly loadTimeMs: Stats
+  readonly domContentLoadedTimeMs: Stats
+  readonly responseEndTimeMs: Stats
   readonly wallTimeMs: Stats
   readonly domNodes: Stats
   readonly heapUsed: Stats
   readonly heapTotal: Stats
+  readonly transferSize: Stats
+  readonly encodedBodySize: Stats
+  readonly decodedBodySize: Stats
+  readonly resources: Stats
+  readonly scriptDurationMs: Stats
+  readonly taskDurationMs: Stats
+  readonly layoutDurationMs: Stats
+  readonly recalcStyleDurationMs: Stats
   readonly documents: Stats
   readonly eventListeners: Stats
 }

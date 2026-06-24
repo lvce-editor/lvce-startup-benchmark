@@ -26,6 +26,14 @@ const successfulMeasured = (results: readonly IterationResult[]): readonly Itera
   return results.filter((result) => result.success && !result.warmup)
 }
 
+const getPerformanceMetric = (result: IterationResult, name: string): number => {
+  return result.performanceMetrics.find((metric) => metric.name === name)?.value ?? Number.NaN
+}
+
+const secondsToMs = (value: number): number => {
+  return Number.isFinite(value) ? value * 1000 : Number.NaN
+}
+
 export const summarizeVersion = (version: string, results: readonly IterationResult[]): VersionSummary => {
   const measured = successfulMeasured(results)
   return {
@@ -33,10 +41,20 @@ export const summarizeVersion = (version: string, results: readonly IterationRes
     iterations: measured.length,
     failures: results.filter((result) => !result.success && !result.warmup).length,
     loadTimeMs: getStats(measured.map((result) => result.navigation?.loadEventEnd ?? result.wallTimeMs)),
+    domContentLoadedTimeMs: getStats(measured.map((result) => result.navigation?.domContentLoadedEventEnd ?? Number.NaN)),
+    responseEndTimeMs: getStats(measured.map((result) => result.navigation?.responseEnd ?? Number.NaN)),
     wallTimeMs: getStats(measured.map((result) => result.wallTimeMs)),
     domNodes: getStats(measured.map((result) => result.domNodeCount ?? Number.NaN)),
     heapUsed: getStats(measured.map((result) => result.heapUsage?.usedSize ?? Number.NaN)),
     heapTotal: getStats(measured.map((result) => result.heapUsage?.totalSize ?? Number.NaN)),
+    transferSize: getStats(measured.map((result) => result.loadedResourceSizes?.transferSize ?? result.navigation?.transferSize ?? Number.NaN)),
+    encodedBodySize: getStats(measured.map((result) => result.loadedResourceSizes?.encodedBodySize ?? result.navigation?.encodedBodySize ?? Number.NaN)),
+    decodedBodySize: getStats(measured.map((result) => result.loadedResourceSizes?.decodedBodySize ?? result.navigation?.decodedBodySize ?? Number.NaN)),
+    resources: getStats(measured.map((result) => result.loadedResourceSizes?.resources ?? getPerformanceMetric(result, 'Resources'))),
+    scriptDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'ScriptDuration')))),
+    taskDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'TaskDuration')))),
+    layoutDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'LayoutDuration')))),
+    recalcStyleDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'RecalcStyleDuration')))),
     documents: getStats(measured.map((result) => result.domCounters?.documents ?? Number.NaN)),
     eventListeners: getStats(measured.map((result) => result.domCounters?.jsEventListeners ?? Number.NaN)),
   }
@@ -54,18 +72,20 @@ export const toMarkdown = (summaries: readonly VersionSummary[]): string => {
   const lines = [
     '# LVCE Startup Benchmark Results',
     '',
-    'Values are `mean / min / max / p95` across measured iterations.',
+    'Values are `average / fastest / slowest / p95` across measured iterations.',
     '',
-    '| Version | Iterations | Failures | Load ms | Wall ms | DOM Nodes | Heap Used | Heap Total | Documents | Event Listeners |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Version | Iterations | Failures | Load ms | Wall ms | Transfer Size | Encoded Size | Decoded Size | Heap Used | DOM Nodes | Resources | Script ms | Task ms |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ]
   for (const summary of summaries) {
     lines.push(
       `| ${summary.version} | ${summary.iterations} | ${summary.failures} | ${formatStats(summary.loadTimeMs)} | ${formatStats(
         summary.wallTimeMs,
-      )} | ${formatStats(summary.domNodes)} | ${formatStats(summary.heapUsed)} | ${formatStats(summary.heapTotal)} | ${formatStats(
-        summary.documents,
-      )} | ${formatStats(summary.eventListeners)} |`,
+      )} | ${formatStats(summary.transferSize)} | ${formatStats(summary.encodedBodySize)} | ${formatStats(summary.decodedBodySize)} | ${formatStats(
+        summary.heapUsed,
+      )} | ${formatStats(summary.domNodes)} | ${formatStats(summary.resources)} | ${formatStats(summary.scriptDurationMs)} | ${formatStats(
+        summary.taskDurationMs,
+      )} |`,
     )
   }
   lines.push('')

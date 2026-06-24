@@ -5,9 +5,9 @@ Benchmark startup performance for published `@lvce-editor/server` versions.
 ```sh
 npm ci
 npx playwright install chromium
-npm run benchmark -- --versions latest --iterations 5 --warmups 1
+npm run benchmark -- --versions latest --iterations 10 --warmups 1
 npm run benchmark -- --versions 0.84.7,0.84.6 --profile
-npm run benchmark -- --recent-versions 100 --iterations 3
+npm run benchmark -- --recent-versions 100 --iterations 10
 ```
 
 The benchmark installs requested server versions as npm aliases in `.tmp/server-store`,
@@ -27,6 +27,7 @@ publishes the generated report to GitHub Pages.
 ## Metrics
 
 - Navigation timing from `performance.getEntriesByType('navigation')`
+- Total loaded transfer, encoded, and decoded sizes from navigation and resource timing entries
 - Wall-clock navigation time
 - DOM node count
 - Chrome DOM counters
@@ -44,7 +45,7 @@ Options:
 
 - `--versions <csv>`: npm versions or tags of `@lvce-editor/server`
 - `--recent-versions <n>`: resolve and benchmark the latest `n` published versions
-- `--iterations <n>`: measured iterations per version
+- `--iterations <n>`: measured iterations per version (default: 10)
 - `--warmups <n>`: warmup iterations per version
 - `--timeout <ms>`: navigation and server startup timeout
 - `--port-base <n>`: first port to try

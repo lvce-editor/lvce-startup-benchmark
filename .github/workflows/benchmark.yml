@@ -18,7 +18,7 @@ on:
       iterations:
         description: 'Measured iterations per version'
         required: false
-        default: '3'
+        default: '10'
       profile:
         description: 'Record Playwright traces'
         required: false
@@ -82,7 +82,7 @@ jobs:
       - name: Run benchmark
         env:
           VERSIONS: ${{ steps.benchmark-versions.outputs.versions }}
-          ITERATIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.iterations || '3' }}
+          ITERATIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.iterations || '10' }}
           PROFILE: ${{ github.event_name == 'pull_request' && 'false' || github.event.inputs.profile || 'true' }}
         run: |
           PROFILE_FLAG=""

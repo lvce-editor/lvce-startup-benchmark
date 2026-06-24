@@ -6,7 +6,7 @@ test('parseArgs uses defaults', () => {
   const options = parseArgs([])
   assert.deepEqual(options.versions, ['latest'])
   assert.equal(options.recentVersions, null)
-  assert.equal(options.iterations, 5)
+  assert.equal(options.iterations, 10)
   assert.equal(options.warmups, 1)
   assert.equal(options.browser, 'chromium')
 })

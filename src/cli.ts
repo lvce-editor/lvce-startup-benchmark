@@ -4,7 +4,7 @@ import type { BenchmarkOptions, BrowserName } from './types.ts'
 const defaults: BenchmarkOptions = {
   versions: ['latest'],
   recentVersions: null,
-  iterations: 5,
+  iterations: 10,
   warmups: 1,
   timeout: 60_000,
   portBase: 3200,
@@ -141,7 +141,7 @@ Options:
   --versions <csv>     @lvce-editor/server versions or tags (default: latest)
   --recent-versions <n>
                        Resolve and benchmark the latest n published versions
-  --iterations <n>     Measured iterations per version (default: 5)
+  --iterations <n>     Measured iterations per version (default: 10)
   --warmups <n>        Warmup iterations per version (default: 1)
   --timeout <ms>       Navigation/server startup timeout (default: 60000)
   --port-base <n>      First port to try (default: 3200)

@@ -13,48 +13,146 @@ interface ChartDefinition {
   readonly fileName: string
   readonly title: string
   readonly unit: string
-  readonly getStats: (summary: VersionSummary) => Stats
+  readonly getStats: (summary: VersionSummary) => Stats | undefined
 }
 
 const charts: readonly ChartDefinition[] = [
   {
     fileName: 'load-time.svg',
-    title: 'Load event mean',
+    title: 'Load event',
     unit: 'ms',
     getStats: (summary) => summary.loadTimeMs,
   },
   {
+    fileName: 'dom-content-loaded-time.svg',
+    title: 'DOM content loaded',
+    unit: 'ms',
+    getStats: (summary) => summary.domContentLoadedTimeMs,
+  },
+  {
+    fileName: 'response-time.svg',
+    title: 'Response end',
+    unit: 'ms',
+    getStats: (summary) => summary.responseEndTimeMs,
+  },
+  {
     fileName: 'wall-time.svg',
-    title: 'Wall time mean',
+    title: 'Wall time',
     unit: 'ms',
     getStats: (summary) => summary.wallTimeMs,
   },
   {
+    fileName: 'heap-used.svg',
+    title: 'Heap used',
+    unit: 'bytes',
+    getStats: (summary) => summary.heapUsed,
+  },
+  {
+    fileName: 'transfer-size.svg',
+    title: 'Total transfer size',
+    unit: 'bytes',
+    getStats: (summary) => summary.transferSize,
+  },
+  {
+    fileName: 'encoded-size.svg',
+    title: 'Total encoded size',
+    unit: 'bytes',
+    getStats: (summary) => summary.encodedBodySize,
+  },
+  {
+    fileName: 'decoded-size.svg',
+    title: 'Total decoded size',
+    unit: 'bytes',
+    getStats: (summary) => summary.decodedBodySize,
+  },
+  {
+    fileName: 'script-duration.svg',
+    title: 'Script duration',
+    unit: 'ms',
+    getStats: (summary) => summary.scriptDurationMs,
+  },
+  {
+    fileName: 'task-duration.svg',
+    title: 'Main-thread task duration',
+    unit: 'ms',
+    getStats: (summary) => summary.taskDurationMs,
+  },
+  {
+    fileName: 'layout-duration.svg',
+    title: 'Layout duration',
+    unit: 'ms',
+    getStats: (summary) => summary.layoutDurationMs,
+  },
+  {
+    fileName: 'style-duration.svg',
+    title: 'Style recalculation duration',
+    unit: 'ms',
+    getStats: (summary) => summary.recalcStyleDurationMs,
+  },
+  {
     fileName: 'dom-nodes.svg',
-    title: 'DOM nodes mean',
+    title: 'DOM nodes',
     unit: 'nodes',
     getStats: (summary) => summary.domNodes,
   },
   {
-    fileName: 'heap-used.svg',
-    title: 'Heap used mean',
-    unit: 'bytes',
-    getStats: (summary) => summary.heapUsed,
+    fileName: 'resources.svg',
+    title: 'Loaded resources',
+    unit: 'resources',
+    getStats: (summary) => summary.resources,
+  },
+  {
+    fileName: 'event-listeners.svg',
+    title: 'Event listeners',
+    unit: 'listeners',
+    getStats: (summary) => summary.eventListeners,
   },
 ]
 
-const formatNumber = (value: number | null): string => {
+const emptyStats: Stats = {
+  mean: null,
+  min: null,
+  max: null,
+  p95: null,
+}
+
+const formatNumber = (value: number | null, maximumFractionDigits = 2): string => {
   if (value === null) {
     return 'n/a'
   }
   return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 2,
+    maximumFractionDigits,
   }).format(value)
 }
 
-const formatStats = (stats: Stats, unit = ''): string => {
-  const suffix = unit ? ` ${unit}` : ''
-  return `${formatNumber(stats.mean)} / ${formatNumber(stats.min)} / ${formatNumber(stats.max)} / ${formatNumber(stats.p95)}${suffix}`
+const formatBytes = (value: number | null): string => {
+  if (value === null) {
+    return 'n/a'
+  }
+  const units = ['B', 'KiB', 'MiB', 'GiB']
+  let scaled = value
+  let unitIndex = 0
+  while (scaled >= 1024 && unitIndex < units.length - 1) {
+    scaled /= 1024
+    unitIndex++
+  }
+  return `${formatNumber(scaled, scaled >= 10 ? 1 : 2)} ${units[unitIndex]}`
+}
+
+const formatValue = (value: number | null, unit = ''): string => {
+  if (unit === 'bytes') {
+    return formatBytes(value)
+  }
+  const suffix = unit && value !== null ? ` ${unit}` : ''
+  return `${formatNumber(value)}${suffix}`
+}
+
+const formatStats = (stats: Stats | undefined, unit = ''): string => {
+  const safeStats = stats ?? emptyStats
+  return `${formatValue(safeStats.mean, unit)} / ${formatValue(safeStats.min, unit)} / ${formatValue(safeStats.max, unit)} / ${formatValue(
+    safeStats.p95,
+    unit,
+  )}`
 }
 
 const escapeHtml = (value: string): string => {
@@ -77,51 +175,137 @@ const getBestLoadTime = (summaries: readonly VersionSummary[]): VersionSummary |
   return withLoadTime.toSorted((a, b) => (a.loadTimeMs.mean ?? Number.POSITIVE_INFINITY) - (b.loadTimeMs.mean ?? Number.POSITIVE_INFINITY))[0]
 }
 
-const getMetricMax = (summaries: readonly VersionSummary[], chart: ChartDefinition): number => {
-  const values = summaries.map((summary) => chart.getStats(summary).mean).filter((value): value is number => value !== null && Number.isFinite(value))
-  return Math.max(1, ...values)
+const getFastestLoadTime = (summaries: readonly VersionSummary[]): VersionSummary | undefined => {
+  const withLoadTime = summaries.filter((summary) => summary.loadTimeMs.min !== null)
+  return withLoadTime.toSorted((a, b) => (a.loadTimeMs.min ?? Number.POSITIVE_INFINITY) - (b.loadTimeMs.min ?? Number.POSITIVE_INFINITY))[0]
+}
+
+const getChartStats = (summary: VersionSummary, chart: ChartDefinition): Stats => {
+  return chart.getStats(summary) ?? emptyStats
+}
+
+const getChartValues = (summaries: readonly VersionSummary[], chart: ChartDefinition): readonly number[] => {
+  return summaries
+    .flatMap((summary) => {
+      const stats = getChartStats(summary, chart)
+      return [stats.mean, stats.min]
+    })
+    .filter((value): value is number => value !== null && Number.isFinite(value))
+}
+
+const getChartDomain = (summaries: readonly VersionSummary[], chart: ChartDefinition): { readonly min: number; readonly max: number } => {
+  const values = getChartValues(summaries, chart)
+  if (values.length === 0) {
+    return {
+      min: 0,
+      max: 1,
+    }
+  }
+  const max = Math.max(...values)
+  return {
+    min: 0,
+    max: max <= 0 ? 1 : max * 1.08,
+  }
+}
+
+const pointToString = (point: readonly [number, number]): string => {
+  return `${point[0].toFixed(2)},${point[1].toFixed(2)}`
+}
+
+const renderPolyline = (points: readonly (readonly [number, number])[], className: string): string => {
+  if (points.length < 2) {
+    return ''
+  }
+  return `<polyline class="${className}" points="${points.map(pointToString).join(' ')}" />`
+}
+
+const renderPoints = (points: readonly (readonly [number, number])[], className: string): string => {
+  return points.map((point) => `<circle class="${className}" cx="${point[0].toFixed(2)}" cy="${point[1].toFixed(2)}" r="4" />`).join('\n')
+}
+
+const getXAxisLabels = (summaries: readonly VersionSummary[], left: number, chartWidth: number): string => {
+  if (summaries.length === 0) {
+    return ''
+  }
+  const labelInterval = Math.max(1, Math.ceil(summaries.length / 8))
+  return summaries
+    .map((summary, index) => {
+      if (index % labelInterval !== 0 && index !== summaries.length - 1) {
+        return ''
+      }
+      const x = summaries.length === 1 ? left + chartWidth / 2 : left + (index / (summaries.length - 1)) * chartWidth
+      return `<text class="axis-label x-label" x="${x.toFixed(2)}" y="374" transform="rotate(35 ${x.toFixed(2)} 374)">${escapeXml(summary.version)}</text>`
+    })
+    .join('\n')
 }
 
 const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinition): string => {
-  const rowHeight = 38
-  const width = 960
-  const paddingTop = 62
-  const paddingRight = 32
-  const paddingBottom = 34
-  const labelWidth = 210
-  const valueWidth = 120
-  const barWidth = width - labelWidth - valueWidth - paddingRight
-  const height = paddingTop + paddingBottom + summaries.length * rowHeight
-  const max = getMetricMax(summaries, chart)
-  const colors = ['#246bfe', '#00856f', '#c45500', '#7a5af8', '#b42318']
-  const rows = summaries
-    .map((summary, index) => {
-      const value = chart.getStats(summary).mean
-      const y = paddingTop + index * rowHeight
-      const safeValue = value ?? 0
-      const barLength = Math.max(0, Math.round((safeValue / max) * barWidth))
-      const color = colors[index % colors.length]
+  const width = 1040
+  const height = 420
+  const left = 76
+  const right = 34
+  const top = 70
+  const bottom = 86
+  const chartWidth = width - left - right
+  const chartHeight = height - top - bottom
+  const domain = getChartDomain(summaries, chart)
+  const toX = (index: number): number => (summaries.length === 1 ? left + chartWidth / 2 : left + (index / (summaries.length - 1)) * chartWidth)
+  const toY = (value: number): number => top + ((domain.max - value) / (domain.max - domain.min)) * chartHeight
+  const pointsFor = (key: 'mean' | 'min'): readonly (readonly [number, number])[] =>
+    summaries.flatMap((summary, index) => {
+      const value = getChartStats(summary, chart)[key]
+      return value === null || !Number.isFinite(value) ? [] : ([[toX(index), toY(value)]] as const)
+    })
+  const meanPoints = pointsFor('mean')
+  const minPoints = pointsFor('min')
+  const yTicks = [0, 0.25, 0.5, 0.75, 1]
+    .map((ratio) => {
+      const value = domain.max - ratio * (domain.max - domain.min)
+      const y = top + ratio * chartHeight
       return `
-        <text x="24" y="${y + 23}" class="label">${escapeXml(summary.version)}</text>
-        <rect x="${labelWidth}" y="${y + 8}" width="${barWidth}" height="18" rx="4" class="track" />
-        <rect x="${labelWidth}" y="${y + 8}" width="${barLength}" height="18" rx="4" fill="${color}" />
-        <text x="${labelWidth + barWidth + 16}" y="${y + 23}" class="value">${escapeXml(formatNumber(value))}</text>
+        <line class="grid" x1="${left}" x2="${width - right}" y1="${y.toFixed(2)}" y2="${y.toFixed(2)}" />
+        <text class="axis-label" x="${left - 10}" y="${(y + 4).toFixed(2)}" text-anchor="end">${escapeXml(formatValue(value, chart.unit))}</text>
       `
     })
-    .join('')
+    .join('\n')
+  const latest = summaries.at(-1)
+  const latestStats = latest ? getChartStats(latest, chart) : emptyStats
+  const summaryLine =
+    latest && latestStats.mean !== null
+      ? `${latest.version}: mean ${formatValue(latestStats.mean, chart.unit)}, fastest ${formatValue(latestStats.min, chart.unit)}`
+      : 'No data available'
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(chart.title)}</title>
-  <desc id="desc">Mean ${escapeXml(chart.title.toLowerCase())} by version.</desc>
+  <desc id="desc">Mean and fastest ${escapeXml(chart.title.toLowerCase())} by version.</desc>
   <style>
     .title { fill: #171717; font: 700 24px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .subtitle, .value { fill: #525252; font: 500 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .label { fill: #262626; font: 600 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .track { fill: #eceff3; }
+    .subtitle, .legend, .axis-label { fill: #5f6b7a; font: 500 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .axis-label { font-size: 11px; }
+    .grid { stroke: #e3e8ef; stroke-width: 1; }
+    .axis { stroke: #aeb8c5; stroke-width: 1.2; }
+    .mean-line, .fastest-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
+    .mean-line { stroke: #246bfe; }
+    .fastest-line { stroke: #00856f; }
+    .mean-point { fill: #246bfe; stroke: #ffffff; stroke-width: 1.5; }
+    .fastest-point { fill: #00856f; stroke: #ffffff; stroke-width: 1.5; }
+    .legend-dot.mean { fill: #246bfe; }
+    .legend-dot.fastest { fill: #00856f; }
   </style>
   <rect width="100%" height="100%" fill="#ffffff" />
   <text x="24" y="32" class="title">${escapeXml(chart.title)}</text>
-  <text x="24" y="52" class="subtitle">Mean value in ${escapeXml(chart.unit)}</text>
-  ${rows}
+  <text x="24" y="52" class="subtitle">${escapeXml(summaryLine)}</text>
+  <circle class="legend-dot mean" cx="790" cy="29" r="5" />
+  <text class="legend" x="802" y="33">Average</text>
+  <circle class="legend-dot fastest" cx="890" cy="29" r="5" />
+  <text class="legend" x="902" y="33">Fastest</text>
+  ${yTicks}
+  <line class="axis" x1="${left}" x2="${left}" y1="${top}" y2="${top + chartHeight}" />
+  <line class="axis" x1="${left}" x2="${width - right}" y1="${top + chartHeight}" y2="${top + chartHeight}" />
+  ${renderPolyline(meanPoints, 'mean-line')}
+  ${renderPolyline(minPoints, 'fastest-line')}
+  ${renderPoints(meanPoints, 'mean-point')}
+  ${renderPoints(minPoints, 'fastest-point')}
+  ${getXAxisLabels(summaries, left, chartWidth)}
 </svg>
 `
 }
@@ -135,11 +319,16 @@ const renderSummaryRows = (summaries: readonly VersionSummary[]): string => {
         <td>${summary.iterations}</td>
         <td><span class="status ${summary.failures === 0 ? 'ok' : 'warn'}">${escapeHtml(status)}</span></td>
         <td>${escapeHtml(formatStats(summary.loadTimeMs, 'ms'))}</td>
+        <td>${escapeHtml(formatStats(summary.domContentLoadedTimeMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.wallTimeMs, 'ms'))}</td>
-        <td>${escapeHtml(formatStats(summary.domNodes))}</td>
+        <td>${escapeHtml(formatStats(summary.transferSize, 'bytes'))}</td>
+        <td>${escapeHtml(formatStats(summary.encodedBodySize, 'bytes'))}</td>
+        <td>${escapeHtml(formatStats(summary.decodedBodySize, 'bytes'))}</td>
         <td>${escapeHtml(formatStats(summary.heapUsed, 'bytes'))}</td>
-        <td>${escapeHtml(formatStats(summary.heapTotal, 'bytes'))}</td>
-        <td>${escapeHtml(formatStats(summary.documents))}</td>
+        <td>${escapeHtml(formatStats(summary.domNodes))}</td>
+        <td>${escapeHtml(formatStats(summary.resources))}</td>
+        <td>${escapeHtml(formatStats(summary.scriptDurationMs, 'ms'))}</td>
+        <td>${escapeHtml(formatStats(summary.taskDurationMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.eventListeners))}</td>
       </tr>`
     })
@@ -155,6 +344,7 @@ const renderRawLinks = (rawFiles: readonly string[]): string => {
 
 const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly string[], options: ReportOptions): string => {
   const bestLoad = getBestLoadTime(summaries)
+  const fastestLoad = getFastestLoadTime(summaries)
   const totalFailures = summaries.reduce((total, summary) => total + summary.failures, 0)
   const generatedAt = getGeneratedAt()
   const chartImages = charts
@@ -325,14 +515,15 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
       <h1>${escapeHtml(options.title)}</h1>
       <div class="meta">
         <span>Generated ${escapeHtml(generatedAt)}</span>
-        <span>Values are mean / min / max / p95</span>
+        <span>Values are average / fastest / slowest / p95</span>
       </div>
     </div>
     <div class="stats" aria-label="Run summary">
       <div class="stat"><strong>${summaries.length}</strong><span>Versions</span></div>
       <div class="stat"><strong>${summaries.reduce((total, summary) => total + summary.iterations, 0)}</strong><span>Measured iterations</span></div>
       <div class="stat"><strong>${totalFailures}</strong><span>Failed iterations</span></div>
-      <div class="stat"><strong>${escapeHtml(bestLoad?.version ?? 'n/a')}</strong><span>Lowest mean load time</span></div>
+      <div class="stat"><strong>${escapeHtml(bestLoad?.version ?? 'n/a')}</strong><span>Best average load</span></div>
+      <div class="stat"><strong>${escapeHtml(fastestLoad?.version ?? 'n/a')}</strong><span>Fastest load run</span></div>
     </div>
   </header>
   <main>
@@ -352,11 +543,16 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
               <th scope="col">Iterations</th>
               <th scope="col">Failures</th>
               <th scope="col">Load ms</th>
+              <th scope="col">DOMContentLoaded ms</th>
               <th scope="col">Wall ms</th>
-              <th scope="col">DOM nodes</th>
+              <th scope="col">Transfer size</th>
+              <th scope="col">Encoded size</th>
+              <th scope="col">Decoded size</th>
               <th scope="col">Heap used</th>
-              <th scope="col">Heap total</th>
-              <th scope="col">Documents</th>
+              <th scope="col">DOM nodes</th>
+              <th scope="col">Resources</th>
+              <th scope="col">Script ms</th>
+              <th scope="col">Task ms</th>
               <th scope="col">Event listeners</th>
             </tr>
           </thead>
