@@ -377,7 +377,7 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
       line-height: 1.5;
     }
     header, main {
-      max-width: 1180px;
+      max-width: 1440px;
       margin: 0 auto;
       padding: 28px 20px;
     }
@@ -438,7 +438,7 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
     }
     .chart-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+      grid-template-columns: 1fr;
       gap: 16px;
     }
     figure {
