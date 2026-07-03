@@ -1,32 +1,31 @@
-name: Benchmark
+name: CI
 
 on:
   push:
     branches:
       - main
-  pull_request:
   workflow_dispatch:
     inputs:
       versions:
-        description: '@lvce-editor/server versions or tags. Leave empty to use recent_versions.'
+        description: "@lvce-editor/server versions or tags. Leave empty to use recent_versions."
         required: false
-        default: ''
+        default: ""
       recent_versions:
-        description: 'Number of latest published @lvce-editor/server versions to benchmark'
+        description: "Number of latest published @lvce-editor/server versions to benchmark"
         required: false
-        default: '100'
+        default: "100"
       iterations:
-        description: 'Measured iterations per version'
+        description: "Measured iterations per version"
         required: false
-        default: '10'
+        default: "10"
       profile:
-        description: 'Record Playwright traces'
+        description: "Record Playwright traces"
         required: false
-        default: 'true'
+        default: "true"
         type: choice
         options:
-          - 'true'
-          - 'false'
+          - "true"
+          - "false"
 
 permissions:
   contents: read
@@ -52,7 +51,7 @@ jobs:
         id: benchmark-versions
         env:
           VERSIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.versions || '' }}
-          RECENT_VERSIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.recent_versions || '100' }}
+          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '100' }}
         run: |
           node --input-type=module <<'EOF'
           import { createHash } from 'node:crypto'
@@ -82,8 +81,8 @@ jobs:
       - name: Run benchmark
         env:
           VERSIONS: ${{ steps.benchmark-versions.outputs.versions }}
-          ITERATIONS: ${{ github.event_name == 'pull_request' && '1' || github.event.inputs.iterations || '10' }}
-          PROFILE: ${{ github.event_name == 'pull_request' && 'false' || github.event.inputs.profile || 'true' }}
+          ITERATIONS: ${{ github.event.inputs.iterations || '10' }}
+          PROFILE: ${{ github.event.inputs.profile || 'true' }}
         run: |
           PROFILE_FLAG=""
           if [ "$PROFILE" = "true" ]; then
