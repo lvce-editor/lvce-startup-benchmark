@@ -27,12 +27,15 @@ publishes the generated report to GitHub Pages.
 ## Metrics
 
 - Navigation timing from `performance.getEntriesByType('navigation')`
+- Server startup time from process spawn to HTTP readiness
+- First paint, first contentful paint, and largest contentful paint timings
 - Total loaded transfer, encoded, and decoded sizes from navigation and resource timing entries
 - Wall-clock navigation time
 - DOM node count
 - Chrome DOM counters
 - Runtime heap usage
 - Chrome performance metrics
+- Server open file descriptors on Linux
 - Optional Chrome trace JSON files with `--profile`
 
 ## CLI

@@ -23,10 +23,14 @@ test('writeReport creates a static pages report from benchmark summaries', async
         version: 'latest',
         iterations: 3,
         failures: 0,
+        serverStartupTimeMs: stats(45),
         loadTimeMs: stats(120),
         domContentLoadedTimeMs: stats(110),
         responseEndTimeMs: stats(80),
         wallTimeMs: stats(140),
+        firstPaintMs: stats(90),
+        firstContentfulPaintMs: stats(95),
+        largestContentfulPaintMs: stats(100),
         domNodes: stats(42),
         heapUsed: stats(1000),
         heapTotal: stats(2000),
@@ -40,6 +44,7 @@ test('writeReport creates a static pages report from benchmark summaries', async
         recalcStyleDurationMs: stats(3),
         documents: stats(1),
         eventListeners: stats(7),
+        serverOpenFileDescriptors: stats(12),
       },
     ]
     await mkdir(input, { recursive: true })
@@ -50,9 +55,16 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(html, /Benchmark Report/)
     assert.match(html, /latest/)
     assert.match(html, /average \/ fastest \/ slowest \/ p95/)
+    assert.match(html, /Server startup ms/)
+    assert.match(html, /First paint ms/)
+    assert.match(html, /Server FDs/)
     assert.match(html, /Transfer size/)
+    assert.match(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Server startup/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Load event/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Fastest/)
+    assert.match(await readFile(join(output, 'first-contentful-paint.svg'), 'utf8'), /First contentful paint/)
+    assert.match(await readFile(join(output, 'largest-contentful-paint.svg'), 'utf8'), /Largest contentful paint/)
+    assert.match(await readFile(join(output, 'server-open-file-descriptors.svg'), 'utf8'), /Server open file descriptors/)
     assert.match(await readFile(join(output, 'transfer-size.svg'), 'utf8'), /Total transfer size/)
     assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(summaries, null, 2)}\n`)
   } finally {

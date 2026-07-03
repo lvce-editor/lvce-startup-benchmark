@@ -29,6 +29,7 @@ export interface RunningServer {
   readonly port: number
   readonly url: string
   readonly process: ChildProcess
+  readonly startupTimeMs: number
   readonly stop: () => Promise<void>
 }
 
@@ -67,6 +68,12 @@ export interface PerformanceMetric {
   readonly value: number
 }
 
+export interface PaintTimings {
+  readonly firstPaintMs: number | null
+  readonly firstContentfulPaintMs: number | null
+  readonly largestContentfulPaintMs: number | null
+}
+
 export interface IterationResult {
   readonly version: string
   readonly iteration: number
@@ -80,6 +87,8 @@ export interface IterationResult {
   readonly heapUsage: RuntimeHeapUsage | null
   readonly loadedResourceSizes: LoadedResourceSizes | null
   readonly performanceMetrics: readonly PerformanceMetric[]
+  readonly paintTimings: PaintTimings | null
+  readonly serverOpenFileDescriptors: number | null
   readonly tracePath?: string
   readonly error?: string
 }
@@ -88,6 +97,7 @@ export interface VersionResult {
   readonly version: string
   readonly safeVersion: string
   readonly rawPath: string
+  readonly serverStartupTimeMs: number
   readonly results: readonly IterationResult[]
 }
 
@@ -102,10 +112,14 @@ export interface VersionSummary {
   readonly version: string
   readonly iterations: number
   readonly failures: number
+  readonly serverStartupTimeMs: Stats
   readonly loadTimeMs: Stats
   readonly domContentLoadedTimeMs: Stats
   readonly responseEndTimeMs: Stats
   readonly wallTimeMs: Stats
+  readonly firstPaintMs: Stats
+  readonly firstContentfulPaintMs: Stats
+  readonly largestContentfulPaintMs: Stats
   readonly domNodes: Stats
   readonly heapUsed: Stats
   readonly heapTotal: Stats
@@ -119,4 +133,5 @@ export interface VersionSummary {
   readonly recalcStyleDurationMs: Stats
   readonly documents: Stats
   readonly eventListeners: Stats
+  readonly serverOpenFileDescriptors: Stats
 }

@@ -69,8 +69,8 @@ export const startServer = async (
     output += `\n${error.stack || error.message}`
   })
 
-  const start = Date.now()
-  while (Date.now() - start < options.timeout) {
+  const start = performance.now()
+  while (performance.now() - start < options.timeout) {
     if (child.exitCode !== null) {
       throw new Error(`Server exited before startup for ${prepared.version}\n${output}`)
     }
@@ -79,6 +79,7 @@ export const startServer = async (
         port,
         url,
         process: child,
+        startupTimeMs: performance.now() - start,
         stop: () => stopProcess(child.pid),
       }
     }
