@@ -1,6 +1,7 @@
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { baselineVersion } from './baseline.ts'
 import type { Stats, VersionSummary } from './types.ts'
 
 interface ReportOptions {
@@ -193,6 +194,11 @@ const getChartValues = (summaries: readonly VersionSummary[], chart: ChartDefini
     .filter((value): value is number => value !== null && Number.isFinite(value))
 }
 
+const getBaselineStats = (summaries: readonly VersionSummary[], chart: ChartDefinition): Stats | undefined => {
+  const baseline = summaries.find((summary) => summary.version === baselineVersion)
+  return baseline ? getChartStats(baseline, chart) : undefined
+}
+
 const getChartDomain = (summaries: readonly VersionSummary[], chart: ChartDefinition): { readonly min: number; readonly max: number } => {
   const values = getChartValues(summaries, chart)
   if (values.length === 0) {
@@ -221,6 +227,30 @@ const renderPolyline = (points: readonly (readonly [number, number])[], classNam
 
 const renderPoints = (points: readonly (readonly [number, number])[], className: string): string => {
   return points.map((point) => `<circle class="${className}" cx="${point[0].toFixed(2)}" cy="${point[1].toFixed(2)}" r="4" />`).join('\n')
+}
+
+const renderBaselineLine = (
+  stats: Stats | undefined,
+  toY: (value: number) => number,
+  left: number,
+  right: number,
+  width: number,
+): string => {
+  const value = stats?.min
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return ''
+  }
+  const y = toY(value)
+  return `<line class="baseline-line" x1="${left}" x2="${width - right}" y1="${y.toFixed(2)}" y2="${y.toFixed(2)}" />`
+}
+
+const renderBaselineLegend = (stats: Stats | undefined): string => {
+  const value = stats?.min
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return ''
+  }
+  return `<line class="legend-line baseline" x1="902" x2="930" y1="29" y2="29" />
+  <text class="legend" x="938" y="33">Baseline</text>`
 }
 
 const getXAxisLabels = (summaries: readonly VersionSummary[], left: number, chartWidth: number): string => {
@@ -258,6 +288,7 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     })
   const meanPoints = pointsFor('mean')
   const minPoints = pointsFor('min')
+  const baselineStats = getBaselineStats(summaries, chart)
   const yTicks = [0, 0.25, 0.5, 0.75, 1]
     .map((ratio) => {
       const value = domain.max - ratio * (domain.max - domain.min)
@@ -286,23 +317,27 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     .mean-line, .fastest-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }
     .mean-line { stroke: #246bfe; }
     .fastest-line { stroke: #00856f; }
+    .baseline-line { stroke: #d92d20; stroke-width: 2.4; stroke-dasharray: 7 7; }
     .mean-point { fill: #246bfe; stroke: #ffffff; stroke-width: 1.5; }
     .fastest-point { fill: #00856f; stroke: #ffffff; stroke-width: 1.5; }
     .legend-dot.mean { fill: #246bfe; }
     .legend-dot.fastest { fill: #00856f; }
+    .legend-line.baseline { stroke: #d92d20; stroke-width: 2.4; stroke-dasharray: 7 7; }
   </style>
   <rect width="100%" height="100%" fill="#ffffff" />
   <text x="24" y="32" class="title">${escapeXml(chart.title)}</text>
   <text x="24" y="52" class="subtitle">${escapeXml(summaryLine)}</text>
-  <circle class="legend-dot mean" cx="790" cy="29" r="5" />
-  <text class="legend" x="802" y="33">Average</text>
-  <circle class="legend-dot fastest" cx="890" cy="29" r="5" />
-  <text class="legend" x="902" y="33">Fastest</text>
+  <circle class="legend-dot mean" cx="710" cy="29" r="5" />
+  <text class="legend" x="722" y="33">Average</text>
+  <circle class="legend-dot fastest" cx="810" cy="29" r="5" />
+  <text class="legend" x="822" y="33">Fastest</text>
+  ${renderBaselineLegend(baselineStats)}
   ${yTicks}
   <line class="axis" x1="${left}" x2="${left}" y1="${top}" y2="${top + chartHeight}" />
   <line class="axis" x1="${left}" x2="${width - right}" y1="${top + chartHeight}" y2="${top + chartHeight}" />
   ${renderPolyline(meanPoints, 'mean-line')}
   ${renderPolyline(minPoints, 'fastest-line')}
+  ${renderBaselineLine(baselineStats, toY, left, right, width)}
   ${renderPoints(meanPoints, 'mean-point')}
   ${renderPoints(minPoints, 'fastest-point')}
   ${getXAxisLabels(summaries, left, chartWidth)}

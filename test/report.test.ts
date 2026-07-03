@@ -20,6 +20,28 @@ test('writeReport creates a static pages report from benchmark summaries', async
   try {
     const summaries: readonly VersionSummary[] = [
       {
+        version: 'baseline',
+        iterations: 3,
+        failures: 0,
+        loadTimeMs: stats(20),
+        domContentLoadedTimeMs: stats(18),
+        responseEndTimeMs: stats(5),
+        wallTimeMs: stats(25),
+        domNodes: stats(4),
+        heapUsed: stats(500),
+        heapTotal: stats(1500),
+        transferSize: stats(300),
+        encodedBodySize: stats(250),
+        decodedBodySize: stats(500),
+        resources: stats(1),
+        scriptDurationMs: stats(2),
+        taskDurationMs: stats(5),
+        layoutDurationMs: stats(1),
+        recalcStyleDurationMs: stats(1),
+        documents: stats(1),
+        eventListeners: stats(0),
+      },
+      {
         version: 'latest',
         iterations: 3,
         failures: 0,
@@ -53,6 +75,8 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(html, /Transfer size/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Load event/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Fastest/)
+    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Baseline/)
+    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /class="baseline-line"/)
     assert.match(await readFile(join(output, 'transfer-size.svg'), 'utf8'), /Total transfer size/)
     assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(summaries, null, 2)}\n`)
   } finally {

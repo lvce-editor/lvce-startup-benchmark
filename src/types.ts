@@ -15,6 +15,7 @@ export interface BenchmarkOptions {
   readonly profile: boolean
   readonly headed: boolean
   readonly browser: BrowserName
+  readonly baseline: boolean
 }
 
 export interface PreparedServer {

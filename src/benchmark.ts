@@ -4,6 +4,7 @@ import { startServer } from './server.ts'
 import { measureStartup } from './measure.ts'
 import { getRawResultPath, writeSummary, writeVersionResult } from './results.ts'
 import { summarizeVersion } from './summary.ts'
+import { baselineVersion, getBaselinePreparedServer } from './baseline.ts'
 import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer, VersionResult, VersionSummary } from './types.ts'
 
 export interface BenchmarkDependencies {
@@ -30,17 +31,39 @@ const defaultDependencies: Required<BenchmarkDependencies> = {
   measureStartup,
 }
 
+const getBenchmarkVersions = (options: BenchmarkOptions): readonly string[] => {
+  if (!options.baseline) {
+    return options.versions
+  }
+  if (options.versions.includes(baselineVersion)) {
+    throw new Error(`--baseline cannot be used when --versions includes "${baselineVersion}"`)
+  }
+  return [baselineVersion, ...options.versions]
+}
+
+const getPreparedServers = async (
+  options: BenchmarkOptions,
+  prepareServers: (versions: readonly string[]) => Promise<ReadonlyMap<string, PreparedServer>>,
+): Promise<ReadonlyMap<string, PreparedServer>> => {
+  const appPreparedServers = await prepareServers(options.versions)
+  if (!options.baseline) {
+    return appPreparedServers
+  }
+  return new Map<string, PreparedServer>([[baselineVersion, getBaselinePreparedServer()], ...appPreparedServers])
+}
+
 export const runBenchmark = async (
   options: BenchmarkOptions,
   dependencies: BenchmarkDependencies = {},
 ): Promise<BenchmarkRunResult> => {
   const deps = { ...defaultDependencies, ...dependencies }
+  const benchmarkVersions = getBenchmarkVersions(options)
   await mkdir(options.output, { recursive: true })
   console.info(`[benchmark] preparing ${options.versions.length} server version${options.versions.length === 1 ? '' : 's'}`)
-  const preparedServers = await deps.prepareServers(options.versions)
+  const preparedServers = await getPreparedServers(options, deps.prepareServers)
   const versionResults: VersionResult[] = []
   const summaries: VersionSummary[] = []
-  for (const version of options.versions) {
+  for (const version of benchmarkVersions) {
     const prepared = preparedServers.get(version)
     if (!prepared) {
       throw new Error(`Missing prepared server for ${version}`)

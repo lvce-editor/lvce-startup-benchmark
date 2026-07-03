@@ -9,6 +9,7 @@ test('parseArgs uses defaults', () => {
   assert.equal(options.iterations, 10)
   assert.equal(options.warmups, 1)
   assert.equal(options.browser, 'chromium')
+  assert.equal(options.baseline, false)
 })
 
 test('parseArgs parses benchmark options', () => {
@@ -31,6 +32,7 @@ test('parseArgs parses benchmark options', () => {
     'out',
     '--profile',
     '--headed',
+    '--baseline',
   ])
   assert.deepEqual(options.versions, ['0.84.7', '0.84.6'])
   assert.equal(options.recentVersions, null)
@@ -42,6 +44,7 @@ test('parseArgs parses benchmark options', () => {
   assert.equal(options.output, 'out')
   assert.equal(options.profile, true)
   assert.equal(options.headed, true)
+  assert.equal(options.baseline, true)
 })
 
 test('parseArgs parses recent version count', () => {
