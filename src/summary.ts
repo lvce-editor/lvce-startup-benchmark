@@ -34,16 +34,20 @@ const secondsToMs = (value: number): number => {
   return Number.isFinite(value) ? value * 1000 : Number.NaN
 }
 
-export const summarizeVersion = (version: string, results: readonly IterationResult[]): VersionSummary => {
+export const summarizeVersion = (version: string, results: readonly IterationResult[], serverStartupTimeMs: number): VersionSummary => {
   const measured = successfulMeasured(results)
   return {
     version,
     iterations: measured.length,
     failures: results.filter((result) => !result.success && !result.warmup).length,
+    serverStartupTimeMs: getStats([serverStartupTimeMs]),
     loadTimeMs: getStats(measured.map((result) => result.navigation?.loadEventEnd ?? result.wallTimeMs)),
     domContentLoadedTimeMs: getStats(measured.map((result) => result.navigation?.domContentLoadedEventEnd ?? Number.NaN)),
     responseEndTimeMs: getStats(measured.map((result) => result.navigation?.responseEnd ?? Number.NaN)),
     wallTimeMs: getStats(measured.map((result) => result.wallTimeMs)),
+    firstPaintMs: getStats(measured.map((result) => result.paintTimings?.firstPaintMs ?? Number.NaN)),
+    firstContentfulPaintMs: getStats(measured.map((result) => result.paintTimings?.firstContentfulPaintMs ?? Number.NaN)),
+    largestContentfulPaintMs: getStats(measured.map((result) => result.paintTimings?.largestContentfulPaintMs ?? Number.NaN)),
     domNodes: getStats(measured.map((result) => result.domNodeCount ?? Number.NaN)),
     heapUsed: getStats(measured.map((result) => result.heapUsage?.usedSize ?? Number.NaN)),
     heapTotal: getStats(measured.map((result) => result.heapUsage?.totalSize ?? Number.NaN)),
@@ -57,6 +61,7 @@ export const summarizeVersion = (version: string, results: readonly IterationRes
     recalcStyleDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'RecalcStyleDuration')))),
     documents: getStats(measured.map((result) => result.domCounters?.documents ?? Number.NaN)),
     eventListeners: getStats(measured.map((result) => result.domCounters?.jsEventListeners ?? Number.NaN)),
+    serverOpenFileDescriptors: getStats(measured.map((result) => result.serverOpenFileDescriptors ?? Number.NaN)),
   }
 }
 
@@ -74,18 +79,22 @@ export const toMarkdown = (summaries: readonly VersionSummary[]): string => {
     '',
     'Values are `average / fastest / slowest / p95` across measured iterations.',
     '',
-    '| Version | Iterations | Failures | Load ms | Wall ms | Transfer Size | Encoded Size | Decoded Size | Heap Used | DOM Nodes | Resources | Script ms | Task ms |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Version | Iterations | Failures | Server Startup ms | Load ms | First Paint ms | FCP ms | LCP ms | Wall ms | Transfer Size | Encoded Size | Decoded Size | Heap Used | DOM Nodes | Resources | Script ms | Task ms | Server FDs |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ]
   for (const summary of summaries) {
     lines.push(
-      `| ${summary.version} | ${summary.iterations} | ${summary.failures} | ${formatStats(summary.loadTimeMs)} | ${formatStats(
+      `| ${summary.version} | ${summary.iterations} | ${summary.failures} | ${formatStats(summary.serverStartupTimeMs)} | ${formatStats(
+        summary.loadTimeMs,
+      )} | ${formatStats(summary.firstPaintMs)} | ${formatStats(summary.firstContentfulPaintMs)} | ${formatStats(
+        summary.largestContentfulPaintMs,
+      )} | ${formatStats(
         summary.wallTimeMs,
       )} | ${formatStats(summary.transferSize)} | ${formatStats(summary.encodedBodySize)} | ${formatStats(summary.decodedBodySize)} | ${formatStats(
         summary.heapUsed,
       )} | ${formatStats(summary.domNodes)} | ${formatStats(summary.resources)} | ${formatStats(summary.scriptDurationMs)} | ${formatStats(
         summary.taskDurationMs,
-      )} |`,
+      )} | ${formatStats(summary.serverOpenFileDescriptors)} |`,
     )
   }
   lines.push('')
