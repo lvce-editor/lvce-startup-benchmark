@@ -18,6 +18,7 @@ const failedIteration: IterationResult = {
   loadedResourceSizes: null,
   performanceMetrics: [],
   paintTimings: null,
+  gpuProcessMemoryBytes: null,
   serverOpenFileDescriptors: null,
   error: 'page.goto: net::ERR_CONNECTION_REFUSED',
 }

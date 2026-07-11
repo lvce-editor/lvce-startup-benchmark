@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { chromium, type CDPSession, type Page } from 'playwright'
+import { chromium, type Browser, type CDPSession, type Page } from 'playwright'
+import { getGpuProcessMemoryBytes } from './gpuProcessMemory.ts'
 import type {
   BenchmarkOptions,
   DomCounters,
@@ -125,6 +126,21 @@ const stopTracing = async (cdp: CDPSession, tracePath: string): Promise<void> =>
   await writeFile(tracePath, trace)
 }
 
+const measureGpuProcessMemory = async (browser: Browser): Promise<number | null> => {
+  const cdp = await browser.newBrowserCDPSession().catch(() => null)
+  if (!cdp) {
+    return null
+  }
+  try {
+    const { processInfo } = await cdp.send('SystemInfo.getProcessInfo')
+    return await getGpuProcessMemoryBytes(processInfo)
+  } catch {
+    return null
+  } finally {
+    await cdp.detach().catch(() => undefined)
+  }
+}
+
 export const measureStartup = async (
   version: string,
   safeVersion: string,
@@ -170,6 +186,7 @@ export const measureStartup = async (
     const performanceMetricsResult = (await cdp.send('Performance.getMetrics').catch(() => ({ metrics: [] }))) as {
       readonly metrics: readonly { readonly name: string; readonly value: number }[]
     }
+    const gpuProcessMemoryBytes = await measureGpuProcessMemory(browser)
     return {
       version,
       iteration,
@@ -184,6 +201,7 @@ export const measureStartup = async (
       loadedResourceSizes,
       performanceMetrics: getPerformanceMetrics(performanceMetricsResult.metrics),
       paintTimings,
+      gpuProcessMemoryBytes,
       serverOpenFileDescriptors: null,
       ...(tracePath ? { tracePath } : {}),
     }
@@ -202,6 +220,7 @@ export const measureStartup = async (
       loadedResourceSizes: null,
       performanceMetrics: [],
       paintTimings: null,
+      gpuProcessMemoryBytes: null,
       serverOpenFileDescriptors: null,
       error: error instanceof Error ? error.stack || error.message : String(error),
       ...(tracePath ? { tracePath } : {}),

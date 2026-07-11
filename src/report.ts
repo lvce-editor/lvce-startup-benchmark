@@ -73,6 +73,12 @@ const charts: readonly ChartDefinition[] = [
     getStats: (summary) => summary.heapUsed,
   },
   {
+    fileName: 'gpu-process-memory.svg',
+    title: 'GPU process memory',
+    unit: 'bytes',
+    getStats: (summary) => summary.gpuProcessMemoryBytes,
+  },
+  {
     fileName: 'transfer-size.svg',
     title: 'Total transfer size',
     unit: 'bytes',
@@ -394,6 +400,7 @@ const renderSummaryRows = (summaries: readonly VersionSummary[]): string => {
         <td>${escapeHtml(formatStats(summary.encodedBodySize, 'bytes'))}</td>
         <td>${escapeHtml(formatStats(summary.decodedBodySize, 'bytes'))}</td>
         <td>${escapeHtml(formatStats(summary.heapUsed, 'bytes'))}</td>
+        <td>${escapeHtml(formatStats(summary.gpuProcessMemoryBytes, 'bytes'))}</td>
         <td>${escapeHtml(formatStats(summary.domNodes))}</td>
         <td>${escapeHtml(formatStats(summary.resources))}</td>
         <td>${escapeHtml(formatStats(summary.scriptDurationMs, 'ms'))}</td>
@@ -623,6 +630,7 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
               <th scope="col">Encoded size</th>
               <th scope="col">Decoded size</th>
               <th scope="col">Heap used</th>
+              <th scope="col">GPU process memory</th>
               <th scope="col">DOM nodes</th>
               <th scope="col">Resources</th>
               <th scope="col">Script ms</th>

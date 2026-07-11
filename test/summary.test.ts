@@ -35,6 +35,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
         firstContentfulPaintMs: 999,
         largestContentfulPaintMs: 999,
       },
+      gpuProcessMemoryBytes: 999,
       serverOpenFileDescriptors: 999,
     },
     {
@@ -59,6 +60,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
         firstContentfulPaintMs: 30,
         largestContentfulPaintMs: 40,
       },
+      gpuProcessMemoryBytes: 80 * 1024 * 1024,
       serverOpenFileDescriptors: 11,
     },
     {
@@ -73,6 +75,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       heapUsage: null,
       loadedResourceSizes: null,
       paintTimings: null,
+      gpuProcessMemoryBytes: null,
       serverOpenFileDescriptors: null,
       error: 'boom',
     },
@@ -95,6 +98,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
   assert.equal(summary.taskDurationMs.mean, 34)
   assert.equal(summary.layoutDurationMs.mean, 2)
   assert.equal(summary.recalcStyleDurationMs.mean, 3)
+  assert.equal(summary.gpuProcessMemoryBytes.mean, 80 * 1024 * 1024)
   assert.equal(summary.serverOpenFileDescriptors.mean, 11)
 })
 
@@ -118,6 +122,7 @@ test('summarizeVersion returns empty stats for missing paint and file descriptor
         firstContentfulPaintMs: null,
         largestContentfulPaintMs: null,
       },
+      gpuProcessMemoryBytes: null,
       serverOpenFileDescriptors: null,
     },
   ]
@@ -125,5 +130,6 @@ test('summarizeVersion returns empty stats for missing paint and file descriptor
   assert.equal(summary.firstPaintMs.mean, null)
   assert.equal(summary.firstContentfulPaintMs.mean, null)
   assert.equal(summary.largestContentfulPaintMs.mean, null)
+  assert.equal(summary.gpuProcessMemoryBytes.mean, null)
   assert.equal(summary.serverOpenFileDescriptors.mean, null)
 })

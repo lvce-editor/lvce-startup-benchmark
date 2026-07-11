@@ -61,6 +61,7 @@ export const summarizeVersion = (version: string, results: readonly IterationRes
     recalcStyleDurationMs: getStats(measured.map((result) => secondsToMs(getPerformanceMetric(result, 'RecalcStyleDuration')))),
     documents: getStats(measured.map((result) => result.domCounters?.documents ?? Number.NaN)),
     eventListeners: getStats(measured.map((result) => result.domCounters?.jsEventListeners ?? Number.NaN)),
+    gpuProcessMemoryBytes: getStats(measured.map((result) => result.gpuProcessMemoryBytes ?? Number.NaN)),
     serverOpenFileDescriptors: getStats(measured.map((result) => result.serverOpenFileDescriptors ?? Number.NaN)),
   }
 }
@@ -79,8 +80,8 @@ export const toMarkdown = (summaries: readonly VersionSummary[]): string => {
     '',
     'Values are `average / fastest / slowest / p95` across measured iterations.',
     '',
-    '| Version | Iterations | Failures | Server Startup ms | Load ms | First Paint ms | FCP ms | LCP ms | Wall ms | Transfer Size | Encoded Size | Decoded Size | Heap Used | DOM Nodes | Resources | Script ms | Task ms | Server FDs |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Version | Iterations | Failures | Server Startup ms | Load ms | First Paint ms | FCP ms | LCP ms | Wall ms | Transfer Size | Encoded Size | Decoded Size | Heap Used | GPU Process Memory | DOM Nodes | Resources | Script ms | Task ms | Server FDs |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ]
   for (const summary of summaries) {
     lines.push(
@@ -92,7 +93,7 @@ export const toMarkdown = (summaries: readonly VersionSummary[]): string => {
         summary.wallTimeMs,
       )} | ${formatStats(summary.transferSize)} | ${formatStats(summary.encodedBodySize)} | ${formatStats(summary.decodedBodySize)} | ${formatStats(
         summary.heapUsed,
-      )} | ${formatStats(summary.domNodes)} | ${formatStats(summary.resources)} | ${formatStats(summary.scriptDurationMs)} | ${formatStats(
+      )} | ${formatStats(summary.gpuProcessMemoryBytes)} | ${formatStats(summary.domNodes)} | ${formatStats(summary.resources)} | ${formatStats(summary.scriptDurationMs)} | ${formatStats(
         summary.taskDurationMs,
       )} | ${formatStats(summary.serverOpenFileDescriptors)} |`,
     )
