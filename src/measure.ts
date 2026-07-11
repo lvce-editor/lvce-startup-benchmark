@@ -7,6 +7,7 @@ import type {
   IterationResult,
   LoadedResourceSizes,
   NavigationTiming,
+  PaintTimings,
   PerformanceMetric,
   RuntimeHeapUsage,
 } from './types.ts'
@@ -55,6 +56,44 @@ const getLoadedResourceSizes = async (page: Page): Promise<LoadedResourceSizes> 
     return {
       resources: resourceEntries.length,
       ...totals,
+    }
+  })
+}
+
+const getPaintTimings = async (page: Page): Promise<PaintTimings> => {
+  return page.evaluate(async () => {
+    const getPaintTime = (name: string): number | null => {
+      const entry = performance.getEntriesByType('paint').find((paintEntry) => paintEntry.name === name)
+      return entry ? entry.startTime : null
+    }
+    const getLargestContentfulPaintTime = async (): Promise<number | null> => {
+      if (!('PerformanceObserver' in window)) {
+        return null
+      }
+      return new Promise((resolve) => {
+        let latest: number | null = null
+        try {
+          const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              latest = entry.startTime
+            }
+          })
+          observer.observe({ type: 'largest-contentful-paint', buffered: true })
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              observer.disconnect()
+              resolve(latest)
+            }, 0)
+          })
+        } catch {
+          resolve(null)
+        }
+      })
+    }
+    return {
+      firstPaintMs: getPaintTime('first-paint'),
+      firstContentfulPaintMs: getPaintTime('first-contentful-paint'),
+      largestContentfulPaintMs: await getLargestContentfulPaintTime(),
     }
   })
 }
@@ -127,6 +166,7 @@ export const measureStartup = async (
     const loadedResourceSizes = await getLoadedResourceSizes(page).catch(() => null)
     const domCounters = (await cdp.send('Memory.getDOMCounters').catch(() => null)) as DomCounters | null
     const heapUsage = (await cdp.send('Runtime.getHeapUsage').catch(() => null)) as RuntimeHeapUsage | null
+    const paintTimings = await getPaintTimings(page).catch(() => null)
     const performanceMetricsResult = (await cdp.send('Performance.getMetrics').catch(() => ({ metrics: [] }))) as {
       readonly metrics: readonly { readonly name: string; readonly value: number }[]
     }
@@ -143,6 +183,8 @@ export const measureStartup = async (
       heapUsage,
       loadedResourceSizes,
       performanceMetrics: getPerformanceMetrics(performanceMetricsResult.metrics),
+      paintTimings,
+      serverOpenFileDescriptors: null,
       ...(tracePath ? { tracePath } : {}),
     }
   } catch (error) {
@@ -159,6 +201,8 @@ export const measureStartup = async (
       heapUsage: null,
       loadedResourceSizes: null,
       performanceMetrics: [],
+      paintTimings: null,
+      serverOpenFileDescriptors: null,
       error: error instanceof Error ? error.stack || error.message : String(error),
       ...(tracePath ? { tracePath } : {}),
     }

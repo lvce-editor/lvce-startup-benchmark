@@ -4,6 +4,7 @@ import { startServer } from './server.ts'
 import { measureStartup } from './measure.ts'
 import { getRawResultPath, writeSummary, writeVersionResult } from './results.ts'
 import { summarizeVersion } from './summary.ts'
+import { countOpenFileDescriptors } from './fileDescriptors.ts'
 import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer, VersionResult, VersionSummary } from './types.ts'
 
 export interface BenchmarkDependencies {
@@ -54,7 +55,11 @@ export const runBenchmark = async (
         const warmup = index < options.warmups
         const iteration = warmup ? index + 1 : index - options.warmups + 1
         console.info(`[benchmark] ${version} ${warmup ? 'warmup' : 'iteration'} ${iteration}`)
-        results.push(await deps.measureStartup(version, prepared.safeVersion, iteration, warmup, running.url, options))
+        const result = await deps.measureStartup(version, prepared.safeVersion, iteration, warmup, running.url, options)
+        results.push({
+          ...result,
+          serverOpenFileDescriptors: await countOpenFileDescriptors(running.process.pid),
+        })
       }
     } finally {
       await running.stop()
@@ -63,11 +68,12 @@ export const runBenchmark = async (
       version,
       safeVersion: prepared.safeVersion,
       rawPath: getRawResultPath(options.output, prepared.safeVersion),
+      serverStartupTimeMs: running.startupTimeMs,
       results,
     }
     await writeVersionResult(options.output, versionResult)
     versionResults.push(versionResult)
-    summaries.push(summarizeVersion(version, results))
+    summaries.push(summarizeVersion(version, results, running.startupTimeMs))
   }
   await writeSummary(options.output, summaries)
   return {

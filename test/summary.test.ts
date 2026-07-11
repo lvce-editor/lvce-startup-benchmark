@@ -30,6 +30,12 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       domCounters: { documents: 9, nodes: 999, jsEventListeners: 99 },
       heapUsage: { usedSize: 999, totalSize: 1999 },
       loadedResourceSizes: { resources: 99, transferSize: 999, encodedBodySize: 999, decodedBodySize: 999 },
+      paintTimings: {
+        firstPaintMs: 999,
+        firstContentfulPaintMs: 999,
+        largestContentfulPaintMs: 999,
+      },
+      serverOpenFileDescriptors: 999,
     },
     {
       ...base,
@@ -48,6 +54,12 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
         { name: 'LayoutDuration', value: 0.002 },
         { name: 'RecalcStyleDuration', value: 0.003 },
       ],
+      paintTimings: {
+        firstPaintMs: 20,
+        firstContentfulPaintMs: 30,
+        largestContentfulPaintMs: 40,
+      },
+      serverOpenFileDescriptors: 11,
     },
     {
       ...base,
@@ -60,13 +72,19 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       domCounters: null,
       heapUsage: null,
       loadedResourceSizes: null,
+      paintTimings: null,
+      serverOpenFileDescriptors: null,
       error: 'boom',
     },
   ]
-  const summary = summarizeVersion('latest', results)
+  const summary = summarizeVersion('latest', results, 45)
   assert.equal(summary.iterations, 1)
   assert.equal(summary.failures, 1)
+  assert.equal(summary.serverStartupTimeMs.mean, 45)
   assert.equal(summary.loadTimeMs.mean, 180)
+  assert.equal(summary.firstPaintMs.mean, 20)
+  assert.equal(summary.firstContentfulPaintMs.mean, 30)
+  assert.equal(summary.largestContentfulPaintMs.mean, 40)
   assert.equal(summary.domNodes.mean, 10)
   assert.equal(summary.heapUsed.mean, 100)
   assert.equal(summary.transferSize.mean, 600)
@@ -77,4 +95,35 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
   assert.equal(summary.taskDurationMs.mean, 34)
   assert.equal(summary.layoutDurationMs.mean, 2)
   assert.equal(summary.recalcStyleDurationMs.mean, 3)
+  assert.equal(summary.serverOpenFileDescriptors.mean, 11)
+})
+
+test('summarizeVersion returns empty stats for missing paint and file descriptor values', () => {
+  const results: readonly IterationResult[] = [
+    {
+      version: 'latest',
+      iteration: 1,
+      warmup: false,
+      success: true,
+      url: 'http://localhost:3000/',
+      wallTimeMs: 200,
+      navigation: null,
+      domNodeCount: null,
+      domCounters: null,
+      heapUsage: null,
+      loadedResourceSizes: null,
+      performanceMetrics: [],
+      paintTimings: {
+        firstPaintMs: null,
+        firstContentfulPaintMs: null,
+        largestContentfulPaintMs: null,
+      },
+      serverOpenFileDescriptors: null,
+    },
+  ]
+  const summary = summarizeVersion('latest', results, 45)
+  assert.equal(summary.firstPaintMs.mean, null)
+  assert.equal(summary.firstContentfulPaintMs.mean, null)
+  assert.equal(summary.largestContentfulPaintMs.mean, null)
+  assert.equal(summary.serverOpenFileDescriptors.mean, null)
 })
