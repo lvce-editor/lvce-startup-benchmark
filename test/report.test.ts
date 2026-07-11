@@ -20,6 +20,33 @@ test('writeReport creates a static pages report from benchmark summaries', async
   try {
     const summaries: readonly VersionSummary[] = [
       {
+        version: 'baseline',
+        iterations: 3,
+        failures: 0,
+        serverStartupTimeMs: stats(5),
+        loadTimeMs: stats(20),
+        domContentLoadedTimeMs: stats(18),
+        responseEndTimeMs: stats(5),
+        wallTimeMs: stats(25),
+        firstPaintMs: stats(10),
+        firstContentfulPaintMs: stats(12),
+        largestContentfulPaintMs: stats(15),
+        domNodes: stats(4),
+        heapUsed: stats(500),
+        heapTotal: stats(1500),
+        transferSize: stats(300),
+        encodedBodySize: stats(250),
+        decodedBodySize: stats(500),
+        resources: stats(1),
+        scriptDurationMs: stats(2),
+        taskDurationMs: stats(5),
+        layoutDurationMs: stats(1),
+        recalcStyleDurationMs: stats(1),
+        documents: stats(1),
+        eventListeners: stats(0),
+        serverOpenFileDescriptors: stats(8),
+      },
+      {
         version: 'latest',
         iterations: 3,
         failures: 0,
@@ -62,6 +89,8 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Server startup/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Load event/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Fastest/)
+    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Baseline/)
+    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /class="baseline-line"/)
     assert.match(await readFile(join(output, 'first-contentful-paint.svg'), 'utf8'), /First contentful paint/)
     assert.match(await readFile(join(output, 'largest-contentful-paint.svg'), 'utf8'), /Largest contentful paint/)
     assert.match(await readFile(join(output, 'server-open-file-descriptors.svg'), 'utf8'), /Server open file descriptors/)

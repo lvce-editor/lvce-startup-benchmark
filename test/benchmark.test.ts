@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { runBenchmark } from '../src/benchmark.ts'
+import { baselineVersion } from '../src/baseline.ts'
 import type { BenchmarkOptions, IterationResult, PreparedServer, RunningServer } from '../src/types.ts'
 
 const getOptions = (output: string): BenchmarkOptions => ({
@@ -19,6 +20,59 @@ const getOptions = (output: string): BenchmarkOptions => ({
   profile: false,
   headed: false,
   browser: 'chromium',
+  baseline: false,
+})
+
+const getSuccessfulResult = (
+  version: string,
+  iteration: number,
+  warmup: boolean,
+  url: string,
+  loadEventEnd = 120,
+): IterationResult => ({
+  version,
+  iteration,
+  warmup,
+  success: true,
+  url,
+  wallTimeMs: loadEventEnd + 3,
+  navigation: {
+    startTime: 0,
+    domInteractive: 10,
+    domContentLoadedEventEnd: 20,
+    loadEventEnd,
+    responseEnd: 5,
+    duration: loadEventEnd,
+    transferSize: 1,
+    encodedBodySize: 1,
+    decodedBodySize: 1,
+  },
+  domNodeCount: 42,
+  domCounters: {
+    documents: 1,
+    nodes: 42,
+    jsEventListeners: 7,
+  },
+  heapUsage: {
+    usedSize: 1000,
+    totalSize: 2000,
+  },
+  loadedResourceSizes: {
+    resources: 3,
+    transferSize: 600,
+    encodedBodySize: 500,
+    decodedBodySize: 900,
+  },
+  performanceMetrics: [
+    { name: 'ScriptDuration', value: 0.012 },
+    { name: 'TaskDuration', value: 0.034 },
+  ],
+  paintTimings: {
+    firstPaintMs: 30,
+    firstContentfulPaintMs: 40,
+    largestContentfulPaintMs: 50,
+  },
+  serverOpenFileDescriptors: null,
 })
 
 test('runBenchmark writes raw and summary files with mocked server lifecycle', async () => {
@@ -37,57 +91,8 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
       startupTimeMs: 45,
       stop: async () => undefined,
     }
-    const measureStartup = async (
-      version: string,
-      _safeVersion: string,
-      iteration: number,
-      warmup: boolean,
-      url: string,
-    ): Promise<IterationResult> => ({
-      version,
-      iteration,
-      warmup,
-      success: true,
-      url,
-      wallTimeMs: 123,
-      navigation: {
-        startTime: 0,
-        domInteractive: 10,
-        domContentLoadedEventEnd: 20,
-        loadEventEnd: 120,
-        responseEnd: 5,
-        duration: 120,
-        transferSize: 1,
-        encodedBodySize: 1,
-        decodedBodySize: 1,
-      },
-      domNodeCount: 42,
-      domCounters: {
-        documents: 1,
-        nodes: 42,
-        jsEventListeners: 7,
-      },
-      heapUsage: {
-        usedSize: 1000,
-        totalSize: 2000,
-      },
-      loadedResourceSizes: {
-        resources: 3,
-        transferSize: 600,
-        encodedBodySize: 500,
-        decodedBodySize: 900,
-      },
-      performanceMetrics: [
-        { name: 'ScriptDuration', value: 0.012 },
-        { name: 'TaskDuration', value: 0.034 },
-      ],
-      paintTimings: {
-        firstPaintMs: 30,
-        firstContentfulPaintMs: 40,
-        largestContentfulPaintMs: 50,
-      },
-      serverOpenFileDescriptors: null,
-    })
+    const measureStartup = async (version: string, _safeVersion: string, iteration: number, warmup: boolean, url: string): Promise<IterationResult> =>
+      getSuccessfulResult(version, iteration, warmup, url)
     const result = await runBenchmark(getOptions(dir), {
       prepareServers: async () => new Map([[prepared.version, prepared]]),
       startServer: async () => running,
@@ -113,4 +118,67 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
+})
+
+test('runBenchmark prepends baseline and prepares only app versions', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lvce-startup-benchmark-'))
+  try {
+    const appPrepared: PreparedServer = {
+      version: 'mock-version',
+      safeVersion: 'mock-version',
+      packageDir: dir,
+      binaryPath: 'server',
+    }
+    const preparedInputs: string[][] = []
+    const startedVersions: string[] = []
+    const measuredVersions: string[] = []
+    const result = await runBenchmark(
+      {
+        ...getOptions(dir),
+        baseline: true,
+      },
+      {
+        prepareServers: async (versions) => {
+          preparedInputs.push([...versions])
+          return new Map([[appPrepared.version, appPrepared]])
+        },
+        startServer: async (prepared) => {
+          startedVersions.push(prepared.version)
+          return {
+            port: prepared.version === baselineVersion ? 3554 : 3555,
+            url: `http://localhost:${prepared.version === baselineVersion ? 3554 : 3555}/`,
+            process: {} as RunningServer['process'],
+            startupTimeMs: prepared.version === baselineVersion ? 5 : 45,
+            stop: async () => undefined,
+          }
+        },
+        measureStartup: async (version, _safeVersion, iteration, warmup, url) => {
+          measuredVersions.push(version)
+          return getSuccessfulResult(version, iteration, warmup, url, version === baselineVersion ? 12 : 120)
+        },
+      },
+    )
+
+    assert.deepEqual(preparedInputs, [['mock-version']])
+    assert.deepEqual(startedVersions, [baselineVersion, 'mock-version'])
+    assert.deepEqual(measuredVersions, [baselineVersion, baselineVersion, 'mock-version', 'mock-version'])
+    assert.deepEqual(result.summaries.map((summary) => summary.version), [baselineVersion, 'mock-version'])
+    assert.equal(result.summaries[0]?.loadTimeMs.mean, 12)
+    assert.equal(result.summaries[1]?.loadTimeMs.mean, 120)
+    assert.match(await readFile(join(dir, 'raw', 'baseline.json'), 'utf8'), /"version": "baseline"/)
+    assert.match(await readFile(join(dir, 'summary.md'), 'utf8'), /baseline/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('runBenchmark rejects duplicate baseline version', async () => {
+  await assert.rejects(
+    runBenchmark({
+      ...getOptions('results'),
+      versions: [baselineVersion],
+      baseline: true,
+    }),
+    /--baseline cannot be used/,
+  )
 })

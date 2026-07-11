@@ -14,6 +14,7 @@ const defaults: BenchmarkOptions = {
   profile: false,
   headed: false,
   browser: 'chromium',
+  baseline: false,
 }
 
 const takeValue = (args: readonly string[], index: number, flag: string): string => {
@@ -120,6 +121,9 @@ export const parseArgs = (argv: readonly string[]): BenchmarkOptions => {
       case '--headed':
         options = { ...options, headed: true }
         break
+      case '--baseline':
+        options = { ...options, baseline: true }
+        break
       case '--browser':
         options = { ...options, browser: parseBrowser(takeValue(argv, i, arg)) }
         i++
@@ -150,6 +154,7 @@ Options:
   --output <dir>       Results directory (default: results)
   --profile            Save a Playwright trace for measured iterations
   --headed             Run Chromium headed
+  --baseline           Include a hello-world baseline benchmark
   --browser chromium   Browser to run (default: chromium)
 `
 }

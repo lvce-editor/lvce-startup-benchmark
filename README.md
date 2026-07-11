@@ -8,12 +8,15 @@ npx playwright install chromium
 npm run benchmark -- --versions latest --iterations 10 --warmups 1
 npm run benchmark -- --versions 0.84.7,0.84.6 --profile
 npm run benchmark -- --recent-versions 100 --iterations 10
+npm run benchmark -- --versions latest --baseline
 ```
 
 The benchmark installs requested server versions as npm aliases in `.tmp/server-store`,
 launches each version on a free local port, opens it with Playwright Chromium,
 waits for the browser `load` event, and writes results to `results/`.
 CI caches `.tmp/server-store` so repeat runs can reuse prepared server installs.
+Use `--baseline` to prepend a tiny hello-world Node HTTP server as a red-line
+reference point in the report.
 
 Generate the static report locally with:
 
@@ -57,5 +60,6 @@ Options:
 - `--output <dir>`: results directory
 - `--profile`: record Playwright traces
 - `--headed`: run Chromium headed
+- `--baseline`: include the hello-world baseline benchmark
 
 Node 24 or newer is required.
