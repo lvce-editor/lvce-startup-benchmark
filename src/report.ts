@@ -19,6 +19,12 @@ interface ChartDefinition {
 
 const charts: readonly ChartDefinition[] = [
   {
+    fileName: 'server-startup-time.svg',
+    title: 'Server startup',
+    unit: 'ms',
+    getStats: (summary) => summary.serverStartupTimeMs,
+  },
+  {
     fileName: 'load-time.svg',
     title: 'Load event',
     unit: 'ms',
@@ -41,6 +47,24 @@ const charts: readonly ChartDefinition[] = [
     title: 'Wall time',
     unit: 'ms',
     getStats: (summary) => summary.wallTimeMs,
+  },
+  {
+    fileName: 'first-paint.svg',
+    title: 'First paint',
+    unit: 'ms',
+    getStats: (summary) => summary.firstPaintMs,
+  },
+  {
+    fileName: 'first-contentful-paint.svg',
+    title: 'First contentful paint',
+    unit: 'ms',
+    getStats: (summary) => summary.firstContentfulPaintMs,
+  },
+  {
+    fileName: 'largest-contentful-paint.svg',
+    title: 'Largest contentful paint',
+    unit: 'ms',
+    getStats: (summary) => summary.largestContentfulPaintMs,
   },
   {
     fileName: 'heap-used.svg',
@@ -107,6 +131,12 @@ const charts: readonly ChartDefinition[] = [
     title: 'Event listeners',
     unit: 'listeners',
     getStats: (summary) => summary.eventListeners,
+  },
+  {
+    fileName: 'server-open-file-descriptors.svg',
+    title: 'Server open file descriptors',
+    unit: 'fds',
+    getStats: (summary) => summary.serverOpenFileDescriptors,
   },
 ]
 
@@ -353,8 +383,12 @@ const renderSummaryRows = (summaries: readonly VersionSummary[]): string => {
         <th scope="row">${escapeHtml(summary.version)}</th>
         <td>${summary.iterations}</td>
         <td><span class="status ${summary.failures === 0 ? 'ok' : 'warn'}">${escapeHtml(status)}</span></td>
+        <td>${escapeHtml(formatStats(summary.serverStartupTimeMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.loadTimeMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.domContentLoadedTimeMs, 'ms'))}</td>
+        <td>${escapeHtml(formatStats(summary.firstPaintMs, 'ms'))}</td>
+        <td>${escapeHtml(formatStats(summary.firstContentfulPaintMs, 'ms'))}</td>
+        <td>${escapeHtml(formatStats(summary.largestContentfulPaintMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.wallTimeMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.transferSize, 'bytes'))}</td>
         <td>${escapeHtml(formatStats(summary.encodedBodySize, 'bytes'))}</td>
@@ -365,6 +399,7 @@ const renderSummaryRows = (summaries: readonly VersionSummary[]): string => {
         <td>${escapeHtml(formatStats(summary.scriptDurationMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.taskDurationMs, 'ms'))}</td>
         <td>${escapeHtml(formatStats(summary.eventListeners))}</td>
+        <td>${escapeHtml(formatStats(summary.serverOpenFileDescriptors, 'fds'))}</td>
       </tr>`
     })
     .join('\n')
@@ -577,8 +612,12 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
               <th scope="col">Version</th>
               <th scope="col">Iterations</th>
               <th scope="col">Failures</th>
+              <th scope="col">Server startup ms</th>
               <th scope="col">Load ms</th>
               <th scope="col">DOMContentLoaded ms</th>
+              <th scope="col">First paint ms</th>
+              <th scope="col">FCP ms</th>
+              <th scope="col">LCP ms</th>
               <th scope="col">Wall ms</th>
               <th scope="col">Transfer size</th>
               <th scope="col">Encoded size</th>
@@ -589,6 +628,7 @@ const renderHtml = (summaries: readonly VersionSummary[], rawFiles: readonly str
               <th scope="col">Script ms</th>
               <th scope="col">Task ms</th>
               <th scope="col">Event listeners</th>
+              <th scope="col">Server FDs</th>
             </tr>
           </thead>
           <tbody>
