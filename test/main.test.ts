@@ -17,6 +17,8 @@ const failedIteration: IterationResult = {
   heapUsage: null,
   loadedResourceSizes: null,
   performanceMetrics: [],
+  paintTimings: null,
+  serverOpenFileDescriptors: null,
   error: 'page.goto: net::ERR_CONNECTION_REFUSED',
 }
 
@@ -26,6 +28,7 @@ const failedRunResult: BenchmarkRunResult = {
       version: '0.80.12',
       safeVersion: '0.80.12',
       rawPath: 'results/raw/0.80.12.json',
+      serverStartupTimeMs: 0,
       results: [failedIteration],
     },
   ],
