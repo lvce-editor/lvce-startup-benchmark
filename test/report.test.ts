@@ -34,6 +34,7 @@ test('writeReport creates a static pages report from benchmark summaries', async
         domNodes: stats(4),
         heapUsed: stats(500),
         heapTotal: stats(1500),
+        gpuProcessMemoryBytes: stats(40 * 1024 * 1024),
         transferSize: stats(300),
         encodedBodySize: stats(250),
         decodedBodySize: stats(500),
@@ -61,6 +62,7 @@ test('writeReport creates a static pages report from benchmark summaries', async
         domNodes: stats(42),
         heapUsed: stats(1000),
         heapTotal: stats(2000),
+        gpuProcessMemoryBytes: stats(80 * 1024 * 1024),
         transferSize: stats(3000),
         encodedBodySize: stats(2500),
         decodedBodySize: stats(5000),
@@ -85,6 +87,8 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(html, /Server startup ms/)
     assert.match(html, /First paint ms/)
     assert.match(html, /Server FDs/)
+    assert.match(html, /GPU process memory/)
+    assert.match(html, /80 MiB/)
     assert.match(html, /Transfer size/)
     assert.match(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Server startup/)
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Load event/)
@@ -93,6 +97,7 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /class="baseline-line"/)
     assert.match(await readFile(join(output, 'first-contentful-paint.svg'), 'utf8'), /First contentful paint/)
     assert.match(await readFile(join(output, 'largest-contentful-paint.svg'), 'utf8'), /Largest contentful paint/)
+    assert.match(await readFile(join(output, 'gpu-process-memory.svg'), 'utf8'), /GPU process memory/)
     assert.match(await readFile(join(output, 'server-open-file-descriptors.svg'), 'utf8'), /Server open file descriptors/)
     assert.match(await readFile(join(output, 'transfer-size.svg'), 'utf8'), /Total transfer size/)
     assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(summaries, null, 2)}\n`)

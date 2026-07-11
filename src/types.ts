@@ -89,6 +89,7 @@ export interface IterationResult {
   readonly loadedResourceSizes: LoadedResourceSizes | null
   readonly performanceMetrics: readonly PerformanceMetric[]
   readonly paintTimings: PaintTimings | null
+  readonly gpuProcessMemoryBytes: number | null
   readonly serverOpenFileDescriptors: number | null
   readonly tracePath?: string
   readonly error?: string
@@ -134,5 +135,6 @@ export interface VersionSummary {
   readonly recalcStyleDurationMs: Stats
   readonly documents: Stats
   readonly eventListeners: Stats
+  readonly gpuProcessMemoryBytes: Stats
   readonly serverOpenFileDescriptors: Stats
 }

@@ -37,6 +37,7 @@ publishes the generated report to GitHub Pages.
 - DOM node count
 - Chrome DOM counters
 - Runtime heap usage
+- Chromium GPU process resident memory on Linux (including software-rendered CI runs)
 - Chrome performance metrics
 - Server open file descriptors on Linux
 - Optional Chrome trace JSON files with `--profile`

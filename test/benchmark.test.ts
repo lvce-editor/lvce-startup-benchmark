@@ -72,6 +72,7 @@ const getSuccessfulResult = (
     firstContentfulPaintMs: 40,
     largestContentfulPaintMs: 50,
   },
+  gpuProcessMemoryBytes: 80 * 1024 * 1024,
   serverOpenFileDescriptors: null,
 })
 
@@ -105,6 +106,7 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
     assert.equal(result.summaries[0]?.largestContentfulPaintMs.mean, 50)
     assert.equal(result.summaries[0]?.transferSize.mean, 600)
     assert.equal(result.summaries[0]?.scriptDurationMs.mean, 12)
+    assert.equal(result.summaries[0]?.gpuProcessMemoryBytes.mean, 80 * 1024 * 1024)
     const raw = JSON.parse(await readFile(join(dir, 'raw', 'mock-version.json'), 'utf8')) as {
       readonly serverStartupTimeMs: number
       readonly results: readonly unknown[]
