@@ -104,10 +104,3 @@ export const runBenchmark = async (
     summaries,
   }
 }
-
-export const hasVersionThatFailedAllIterations = (runResult: BenchmarkRunResult): boolean => {
-  return runResult.versionResults.some((versionResult) => {
-    const measured = versionResult.results.filter((result) => !result.warmup)
-    return measured.length > 0 && measured.every((result) => !result.success)
-  })
-}
