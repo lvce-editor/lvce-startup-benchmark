@@ -46,6 +46,7 @@ jobs:
             ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-
             ${{ runner.os }}-node24-server-store-
       - run: npm ci
+      - run: npm run lint
       - run: npx playwright install --with-deps chromium
       - run: npm run type-check
       - name: Run benchmark
