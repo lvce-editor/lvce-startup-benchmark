@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "benchmark": "node src/main.ts",
+    "benchmark:ci": "node src/runCiBenchmark.ts",
+    "ci:report": "node src/generateCiReport.ts",
+    "ci:resolve-versions": "node src/resolveBenchmarkVersions.ts",
+    "install-browser:ci": "playwright install --with-deps chromium",
     "lint": "eslint .",
     "report": "node src/report.ts",
     "test": "node --test \"test/**/*.test.ts\"",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "update-versions": "node src/updateVersions.ts"
   },
   "engines": {
     "node": ">=24"
