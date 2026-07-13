@@ -11,7 +11,7 @@ on:
         required: false
         default: ""
       recent_versions:
-        description: "Number of latest published @lvce-editor/server versions to benchmark"
+        description: "Number of versions from versions.json to benchmark"
         required: false
         default: "100"
       iterations:
@@ -47,26 +47,13 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - run: npm ci
       - name: Resolve benchmark versions
         id: benchmark-versions
         env:
           VERSIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.versions || '' }}
           RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '100' }}
-        run: |
-          node --input-type=module <<'EOF'
-          import { createHash } from 'node:crypto'
-          import { appendFile } from 'node:fs/promises'
-          import { getRecentPublishedVersions } from './src/versions.ts'
-
-          const explicitVersions = process.env.VERSIONS?.split(',').map((version) => version.trim()).filter(Boolean) ?? []
-          const recentVersionCount = Number.parseInt(process.env.RECENT_VERSIONS || '100', 10)
-          const versions = explicitVersions.length === 0 ? await getRecentPublishedVersions(recentVersionCount) : explicitVersions
-          const serialized = versions.join(',')
-          const hash = createHash('sha256').update(serialized).digest('hex')
-
-          await appendFile(process.env.GITHUB_OUTPUT, `versions=${serialized}\n`)
-          await appendFile(process.env.GITHUB_OUTPUT, `hash=${hash}\n`)
-          EOF
+        run: npm run ci:resolve-versions
       - uses: actions/cache@v5
         id: server-store-cache
         with:
@@ -75,36 +62,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node24-server-store-${{ hashFiles('src/packageManager.ts') }}-
             ${{ runner.os }}-node24-server-store-
-      - run: npm ci
       - run: npm run lint
-      - run: npx playwright install --with-deps chromium
+      - run: npm run install-browser:ci
+      - run: npm test
       - run: npm run type-check
       - name: Run benchmark
         env:
           VERSIONS: ${{ steps.benchmark-versions.outputs.versions }}
           ITERATIONS: ${{ github.event.inputs.iterations || '10' }}
           PROFILE: ${{ github.event.inputs.profile || 'true' }}
-        run: |
-          PROFILE_FLAG=""
-          if [ "$PROFILE" = "true" ]; then
-            PROFILE_FLAG="--profile"
-          fi
-          npm run benchmark -- \
-            --versions "$VERSIONS" \
-            --iterations "$ITERATIONS" \
-            --warmups 1 \
-            --output results \
-            $PROFILE_FLAG
+        run: npm run benchmark:ci
       - name: Generate Pages report
         id: report
         if: always()
-        run: |
-          if [ -f results/summary.json ]; then
-            npm run report -- --input results --output .tmp/pages
-            echo "pages=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "pages=false" >> "$GITHUB_OUTPUT"
-          fi
+        run: npm run ci:report
       - uses: actions/upload-artifact@v5
         if: always()
         with:
