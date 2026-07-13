@@ -81,7 +81,7 @@ export const prepareServerPackages = async (
   const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
   const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
   if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
-    await runCommand('npm', ['install', '--omit=dev', '--prefer-offline'], { cwd: storeDir })
+    await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
   }
 
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))
