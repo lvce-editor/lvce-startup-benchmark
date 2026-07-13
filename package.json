@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "benchmark": "node src/main.ts",
+    "lint": "eslint .",
     "report": "node src/report.ts",
     "test": "node --test \"test/**/*.test.ts\"",
     "type-check": "tsc --noEmit"
@@ -13,7 +14,9 @@
     "node": ">=24"
   },
   "devDependencies": {
+    "@lvce-editor/eslint-config": "^16.3.0",
     "@types/node": "^25.0.1",
+    "eslint": "^10.7.0",
     "playwright": "^1.57.0",
     "typescript": "^5.9.3"
   }
