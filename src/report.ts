@@ -3,6 +3,7 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { baselineVersion } from './baseline.ts'
 import type { Stats, VersionSummary } from './types.ts'
+import { compareVersions } from './versionOrder.ts'
 
 interface ReportOptions {
   readonly input: string
@@ -697,7 +698,8 @@ const copyRawFiles = async (inputDir: string, outputDir: string, rawFiles: reado
 }
 
 export const writeReport = async (options: ReportOptions): Promise<void> => {
-  const summaries = await readSummary(options.input)
+  const inputSummaries = await readSummary(options.input)
+  const summaries = inputSummaries.toSorted((left, right) => compareVersions(left.version, right.version))
   const rawFiles = await getRawFiles(options.input)
   await mkdir(options.output, { recursive: true })
   await Promise.all([
