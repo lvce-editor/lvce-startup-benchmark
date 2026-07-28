@@ -39,42 +39,48 @@ export const getServerPackageAlias = (version: string): string => {
   return `lvce-server-${safeVersion || 'version'}-${suffix}`
 }
 
-export const getServerStorePackageJson = (versions: readonly string[]): string => {
-  const dependencies = Object.fromEntries(versions.map((version) => [getServerPackageAlias(version), `npm:${serverPackageName}@${version}`]))
+export const getServerPackageJson = (version: string): string => {
+  const alias = getServerPackageAlias(version)
   return `${JSON.stringify(
     {
       private: true,
       type: 'module',
-      dependencies,
+      dependencies: {
+        [alias]: `npm:${serverPackageName}@${version}`,
+      },
     },
     null,
     2,
   )}\n`
 }
 
-export const installServerPackages = async (
-  storeDir: string,
+export const installServerPackage = async (
+  versionDir: string,
   run: typeof runCommand = runCommand,
 ): Promise<void> => {
   const install = async (): Promise<void> => {
-    await run('npm', ['install', '--omit=dev'], { cwd: storeDir })
+    await run('npm', ['install', '--omit=dev'], { cwd: versionDir })
   }
 
   try {
     await install()
   } catch {
     await Promise.all([
-      rm(join(storeDir, 'node_modules'), { recursive: true, force: true }),
-      rm(join(storeDir, 'package-lock.json'), { force: true }),
+      rm(join(versionDir, 'node_modules'), { recursive: true, force: true }),
+      rm(join(versionDir, 'package-lock.json'), { force: true }),
     ])
     await install()
   }
 }
 
+const getServerVersionDirectory = (version: string, storeDir: string): string => {
+  return join(storeDir, getServerPackageAlias(version))
+}
+
 const getPreparedServer = (version: string, storeDir: string): PreparedServer => {
   const safeVersion = getSafeVersionName(version)
   const alias = getServerPackageAlias(version)
-  const packageDir = join(storeDir, 'node_modules', alias)
+  const packageDir = join(getServerVersionDirectory(version, storeDir), 'node_modules', alias)
   return {
     version,
     safeVersion,
@@ -84,9 +90,25 @@ const getPreparedServer = (version: string, storeDir: string): PreparedServer =>
   }
 }
 
-const hasPreparedServers = async (preparedServers: readonly PreparedServer[]): Promise<boolean> => {
-  const binaryChecks = await Promise.all(preparedServers.map((prepared) => fileExists(prepared.binaryArgs?.[0] ?? prepared.binaryPath)))
-  return binaryChecks.every(Boolean)
+const prepareServerPackageInStore = async (version: string, storeDir: string): Promise<PreparedServer> => {
+  const versionDir = getServerVersionDirectory(version, storeDir)
+  await mkdir(versionDir, { recursive: true })
+  const packageJsonChanged = await writeFileIfChanged(join(versionDir, 'package.json'), getServerPackageJson(version))
+  const prepared = getPreparedServer(version, storeDir)
+  const binaryExists = await fileExists(prepared.binaryArgs?.[0] ?? prepared.binaryPath)
+  if (packageJsonChanged || !binaryExists) {
+    console.info(`[benchmark] installing server package ${version}`)
+    await installServerPackage(versionDir)
+  }
+  return prepared
+}
+
+const removeLegacyStore = async (storeDir: string): Promise<void> => {
+  await Promise.all([
+    rm(join(storeDir, 'node_modules'), { recursive: true, force: true }),
+    rm(join(storeDir, 'package-lock.json'), { force: true }),
+    rm(join(storeDir, 'package.json'), { force: true }),
+  ])
 }
 
 export const prepareServerPackages = async (
@@ -94,15 +116,15 @@ export const prepareServerPackages = async (
   rootDir = process.cwd(),
 ): Promise<ReadonlyMap<string, PreparedServer>> => {
   const storeDir = join(rootDir, serverStoreDirectory)
-  const packageJsonPath = join(storeDir, 'package.json')
   await mkdir(storeDir, { recursive: true })
-
-  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
-  const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
-  if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
-    await installServerPackages(storeDir)
+  await removeLegacyStore(storeDir)
+  const uniqueVersions = [...new Set(versions)]
+  const preparedServers: PreparedServer[] = []
+  const installConcurrency = 4
+  for (let index = 0; index < uniqueVersions.length; index += installConcurrency) {
+    const batch = uniqueVersions.slice(index, index + installConcurrency)
+    preparedServers.push(...(await Promise.all(batch.map((version) => prepareServerPackageInStore(version, storeDir)))))
   }
-
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))
 }
 

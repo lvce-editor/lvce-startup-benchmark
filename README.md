@@ -23,7 +23,9 @@ npm run benchmark -- --versions latest --baseline
 ```
 
 The benchmark installs requested server versions as npm aliases in `.tmp/server-store`,
-launches each version once per measured iteration on a free local port, opens the
+using one cached dependency tree per version so incompatible historical dependencies
+cannot interfere with one another. It launches each version once per measured
+iteration on a free local port, opens the
 last instance with Playwright Chromium,
 waits for the browser `load` event, and writes results to `results/`.
 CI caches `.tmp/server-store` so repeat runs can reuse prepared server installs.
