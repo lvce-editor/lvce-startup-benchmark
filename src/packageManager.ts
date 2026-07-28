@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { runCommand } from './process.ts'
 import { serverPackageName } from './versions.ts'
@@ -52,6 +52,25 @@ export const getServerStorePackageJson = (versions: readonly string[]): string =
   )}\n`
 }
 
+export const installServerPackages = async (
+  storeDir: string,
+  run: typeof runCommand = runCommand,
+): Promise<void> => {
+  const install = async (): Promise<void> => {
+    await run('npm', ['install', '--omit=dev'], { cwd: storeDir })
+  }
+
+  try {
+    await install()
+  } catch {
+    await Promise.all([
+      rm(join(storeDir, 'node_modules'), { recursive: true, force: true }),
+      rm(join(storeDir, 'package-lock.json'), { force: true }),
+    ])
+    await install()
+  }
+}
+
 const getPreparedServer = (version: string, storeDir: string): PreparedServer => {
   const safeVersion = getSafeVersionName(version)
   const alias = getServerPackageAlias(version)
@@ -81,7 +100,7 @@ export const prepareServerPackages = async (
   const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
   const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
   if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
-    await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
+    await installServerPackages(storeDir)
   }
 
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))

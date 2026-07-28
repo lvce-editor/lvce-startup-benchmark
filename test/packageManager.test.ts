@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
-import { getServerPackageAlias, getServerStorePackageJson } from '../src/packageManager.ts'
+import { getServerPackageAlias, getServerStorePackageJson, installServerPackages } from '../src/packageManager.ts'
 
 test('getServerPackageAlias creates stable safe aliases', () => {
   assert.equal(getServerPackageAlias('0.84.7'), getServerPackageAlias('0.84.7'))
@@ -14,4 +17,28 @@ test('getServerStorePackageJson creates npm alias dependencies', () => {
   }
 
   assert.deepEqual(Object.values(packageJson.dependencies), ['npm:@lvce-editor/server@0.84.7', 'npm:@lvce-editor/server@0.84.6'])
+})
+
+test('installServerPackages retries with a clean store after a cached install fails', async () => {
+  const storeDir = await mkdtemp(join(tmpdir(), 'lvce-startup-server-store-'))
+  const nodeModulesPath = join(storeDir, 'node_modules')
+  const packageLockPath = join(storeDir, 'package-lock.json')
+  let installCount = 0
+  try {
+    await mkdir(nodeModulesPath)
+    await writeFile(packageLockPath, '{}')
+    await installServerPackages(storeDir, async () => {
+      installCount++
+      if (installCount === 1) {
+        throw new Error('cached install failed')
+      }
+      return { stdout: '', stderr: '' }
+    })
+
+    assert.equal(installCount, 2)
+    await assert.rejects(access(nodeModulesPath))
+    await assert.rejects(access(packageLockPath))
+  } finally {
+    await rm(storeDir, { recursive: true, force: true })
+  }
 })
