@@ -29,7 +29,7 @@ const failedRunResult: BenchmarkRunResult = {
       version: '0.80.12',
       safeVersion: '0.80.12',
       rawPath: 'results/raw/0.80.12.json',
-      serverStartupTimeMs: 0,
+      serverStartupTimesMs: [0],
       results: [failedIteration],
     },
   ],

@@ -108,10 +108,10 @@ test('runBenchmark writes raw and summary files with mocked server lifecycle', a
     assert.equal(result.summaries[0]?.scriptDurationMs.mean, 12)
     assert.equal(result.summaries[0]?.gpuProcessMemoryBytes.mean, 80 * 1024 * 1024)
     const raw = JSON.parse(await readFile(join(dir, 'raw', 'mock-version.json'), 'utf8')) as {
-      readonly serverStartupTimeMs: number
+      readonly serverStartupTimesMs: readonly number[]
       readonly results: readonly unknown[]
     }
-    assert.equal(raw.serverStartupTimeMs, 45)
+    assert.deepEqual(raw.serverStartupTimesMs, [45])
     assert.equal(raw.results.length, 2)
     assert.equal(typeof (raw.results[1] as { readonly serverOpenFileDescriptors: unknown }).serverOpenFileDescriptors, 'number')
     const summary = await readFile(join(dir, 'summary.md'), 'utf8')
@@ -169,6 +169,52 @@ test('runBenchmark prepends baseline and prepares only app versions', async () =
     assert.equal(result.summaries[1]?.loadTimeMs.mean, 120)
     assert.match(await readFile(join(dir, 'raw', 'baseline.json'), 'utf8'), /"version": "baseline"/)
     assert.match(await readFile(join(dir, 'summary.md'), 'utf8'), /baseline/)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('runBenchmark samples server startup once per measured iteration', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lvce-startup-benchmark-'))
+  try {
+    const prepared: PreparedServer = {
+      version: 'mock-version',
+      safeVersion: 'mock-version',
+      packageDir: dir,
+      binaryPath: 'server',
+    }
+    let starts = 0
+    let stops = 0
+    const result = await runBenchmark(
+      {
+        ...getOptions(dir),
+        iterations: 3,
+        warmups: 0,
+      },
+      {
+        prepareServers: async () => new Map([[prepared.version, prepared]]),
+        startServer: async () => {
+          starts++
+          return {
+            port: 3555,
+            url: 'http://localhost:3555/',
+            process: { pid: process.pid } as RunningServer['process'],
+            startupTimeMs: starts * 10,
+            stop: async () => {
+              stops++
+            },
+          }
+        },
+        measureStartup: async (version, _safeVersion, iteration, warmup, url) => getSuccessfulResult(version, iteration, warmup, url),
+      },
+    )
+
+    assert.equal(starts, 3)
+    assert.equal(stops, 3)
+    assert.deepEqual(result.versionResults[0]?.serverStartupTimesMs, [10, 20, 30])
+    assert.equal(result.summaries[0]?.serverStartupTimeMs.mean, 20)
+    assert.equal(result.summaries[0]?.serverStartupTimeMs.min, 10)
+    assert.equal(result.summaries[0]?.serverStartupTimeMs.max, 30)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

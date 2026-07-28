@@ -12,6 +12,7 @@ test('getCiBenchmarkArgs translates the CI environment into CLI arguments', () =
     '1',
     '--output',
     'results',
+    '--baseline',
     '--profile',
   ])
 })

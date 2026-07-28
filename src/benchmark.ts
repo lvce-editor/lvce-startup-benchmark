@@ -32,6 +32,28 @@ const defaultDependencies: Required<BenchmarkDependencies> = {
   measureStartup,
 }
 
+const measureServerStartup = async (
+  prepared: PreparedServer,
+  options: BenchmarkOptions,
+  start: (prepared: PreparedServer, options: BenchmarkOptions) => Promise<RunningServer>,
+): Promise<{ readonly running: RunningServer; readonly startupTimesMs: readonly number[] }> => {
+  const startupTimesMs: number[] = []
+  const iterations = Math.max(1, options.iterations)
+  for (let iteration = 1; iteration <= iterations; iteration++) {
+    console.info(`[benchmark] starting server for ${prepared.version} (${iteration}/${iterations})`)
+    const candidate = await start(prepared, options)
+    startupTimesMs.push(candidate.startupTimeMs)
+    if (iteration === iterations) {
+      return {
+        running: candidate,
+        startupTimesMs,
+      }
+    }
+    await candidate.stop()
+  }
+  throw new Error(`Failed to start server for ${prepared.version}`)
+}
+
 const getBenchmarkVersions = (options: BenchmarkOptions): readonly string[] => {
   if (!options.baseline) {
     return options.versions
@@ -69,8 +91,7 @@ export const runBenchmark = async (
     if (!prepared) {
       throw new Error(`Missing prepared server for ${version}`)
     }
-    console.info(`[benchmark] starting server for ${version}`)
-    const running = await deps.startServer(prepared, options)
+    const { running, startupTimesMs: serverStartupTimesMs } = await measureServerStartup(prepared, options, deps.startServer)
     const results: IterationResult[] = []
     try {
       const total = options.warmups + options.iterations
@@ -91,12 +112,12 @@ export const runBenchmark = async (
       version,
       safeVersion: prepared.safeVersion,
       rawPath: getRawResultPath(options.output, prepared.safeVersion),
-      serverStartupTimeMs: running.startupTimeMs,
+      serverStartupTimesMs,
       results,
     }
     await writeVersionResult(options.output, versionResult)
     versionResults.push(versionResult)
-    summaries.push(summarizeVersion(version, results, running.startupTimeMs))
+    summaries.push(summarizeVersion(version, results, serverStartupTimesMs))
   }
   await writeSummary(options.output, summaries)
   return {

@@ -19,6 +19,7 @@ export const getCiBenchmarkArgs = (environment: NodeJS.ProcessEnv): readonly str
     '1',
     '--output',
     'results',
+    '--baseline',
   ]
   if ((environment.PROFILE?.trim() || 'true') === 'true') {
     args.push('--profile')

@@ -23,11 +23,12 @@ npm run benchmark -- --versions latest --baseline
 ```
 
 The benchmark installs requested server versions as npm aliases in `.tmp/server-store`,
-launches each version on a free local port, opens it with Playwright Chromium,
+launches each version once per measured iteration on a free local port, opens the
+last instance with Playwright Chromium,
 waits for the browser `load` event, and writes results to `results/`.
 CI caches `.tmp/server-store` so repeat runs can reuse prepared server installs.
-Use `--baseline` to prepend a tiny hello-world Node HTTP server as a red-line
-reference point in the report.
+Use `--baseline` to prepend a tiny hello-world JavaScript HTTP server as a
+red-line reference point in the report. CI includes this baseline by default.
 
 Generate the static report locally with:
 
@@ -41,7 +42,7 @@ publishes the generated report to GitHub Pages.
 ## Metrics
 
 - Navigation timing from `performance.getEntriesByType('navigation')`
-- Server startup time from process spawn to HTTP readiness
+- Server startup time from process spawn to listening output or TCP readiness
 - First paint, first contentful paint, and largest contentful paint timings
 - Total loaded transfer, encoded, and decoded sizes from navigation and resource timing entries
 - Wall-clock navigation time

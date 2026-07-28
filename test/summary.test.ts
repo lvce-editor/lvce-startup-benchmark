@@ -80,7 +80,7 @@ test('summarizeVersion ignores warmups and failed values for metrics', () => {
       error: 'boom',
     },
   ]
-  const summary = summarizeVersion('latest', results, 45)
+  const summary = summarizeVersion('latest', results, [40, 45, 50])
   assert.equal(summary.iterations, 1)
   assert.equal(summary.failures, 1)
   assert.equal(summary.serverStartupTimeMs.mean, 45)
@@ -126,7 +126,7 @@ test('summarizeVersion returns empty stats for missing paint and file descriptor
       serverOpenFileDescriptors: null,
     },
   ]
-  const summary = summarizeVersion('latest', results, 45)
+  const summary = summarizeVersion('latest', results, [45])
   assert.equal(summary.firstPaintMs.mean, null)
   assert.equal(summary.firstContentfulPaintMs.mean, null)
   assert.equal(summary.largestContentfulPaintMs.mean, null)

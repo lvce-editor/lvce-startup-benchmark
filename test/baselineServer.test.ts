@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { get } from 'node:http'
 import test from 'node:test'
-import { createBaselineServer } from '../src/baselineServer.ts'
+import { createBaselineServer } from '../src/baselineServer.js'
 
 const readUrl = async (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {

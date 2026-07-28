@@ -35,16 +35,19 @@ export const createBaselineServer = () => {
   })
 }
 
-export const startBaselineServer = async (port: number): Promise<void> => {
+/**
+ * @param {number} port
+ */
+export const startBaselineServer = async (port) => {
   const server = createBaselineServer()
-  const stop = (): void => {
+  const stop = () => {
     server.close(() => undefined)
   }
   process.once('SIGINT', stop)
   process.once('SIGTERM', stop)
-  await new Promise<void>((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     server.once('error', reject)
-    server.listen(port, () => {
+    server.listen(port, 'localhost', () => {
       server.off('error', reject)
       console.info(`listening on http://localhost:${port}`)
       resolve()
@@ -52,7 +55,7 @@ export const startBaselineServer = async (port: number): Promise<void> => {
   })
 }
 
-const main = async (): Promise<void> => {
+const main = async () => {
   const port = Number.parseInt(process.env.PORT || '', 10)
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error('PORT must be a positive integer')
