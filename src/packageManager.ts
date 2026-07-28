@@ -71,10 +71,8 @@ export const installServerPackages = async (
   }
 }
 
-const getPreparedServer = (version: string, storeDir: string): PreparedServer => {
+const getPreparedServer = (version: string, packageDir: string): PreparedServer => {
   const safeVersion = getSafeVersionName(version)
-  const alias = getServerPackageAlias(version)
-  const packageDir = join(storeDir, 'node_modules', alias)
   return {
     version,
     safeVersion,
@@ -84,23 +82,46 @@ const getPreparedServer = (version: string, storeDir: string): PreparedServer =>
   }
 }
 
-const hasPreparedServers = async (preparedServers: readonly PreparedServer[]): Promise<boolean> => {
-  const binaryChecks = await Promise.all(preparedServers.map((prepared) => fileExists(prepared.binaryArgs?.[0] ?? prepared.binaryPath)))
-  return binaryChecks.every(Boolean)
+const hasPreparedServer = async (preparedServer: PreparedServer): Promise<boolean> => {
+  return fileExists(preparedServer.binaryArgs?.[0] ?? preparedServer.binaryPath)
+}
+
+const prepareIsolatedServerPackage = async (
+  version: string,
+  storeDir: string,
+  run: typeof runCommand,
+): Promise<PreparedServer> => {
+  const alias = getServerPackageAlias(version)
+  const versionStoreDir = join(storeDir, 'versions', alias)
+  const packageDir = join(versionStoreDir, 'node_modules', alias)
+  const preparedServer = getPreparedServer(version, packageDir)
+  await mkdir(versionStoreDir, { recursive: true })
+
+  const packageJsonChanged = await writeFileIfChanged(join(versionStoreDir, 'package.json'), getServerStorePackageJson([version]))
+  if (packageJsonChanged || !(await hasPreparedServer(preparedServer))) {
+    await installServerPackages(versionStoreDir, run)
+  }
+  return preparedServer
 }
 
 export const prepareServerPackages = async (
   versions: readonly string[],
   rootDir = process.cwd(),
+  run: typeof runCommand = runCommand,
 ): Promise<ReadonlyMap<string, PreparedServer>> => {
   const storeDir = join(rootDir, serverStoreDirectory)
-  const packageJsonPath = join(storeDir, 'package.json')
   await mkdir(storeDir, { recursive: true })
 
-  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
-  const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
-  if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
-    await installServerPackages(storeDir)
+  const preparedServers: PreparedServer[] = []
+  for (const version of versions) {
+    const alias = getServerPackageAlias(version)
+    const legacyPackageDir = join(storeDir, 'node_modules', alias)
+    const legacyPreparedServer = getPreparedServer(version, legacyPackageDir)
+    if (await hasPreparedServer(legacyPreparedServer)) {
+      preparedServers.push(legacyPreparedServer)
+      continue
+    }
+    preparedServers.push(await prepareIsolatedServerPackage(version, storeDir, run))
   }
 
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))
