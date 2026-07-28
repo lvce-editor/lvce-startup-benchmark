@@ -1,44 +1,62 @@
-import { spawn } from 'node:child_process'
-import { request } from 'node:http'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { connect } from 'node:net'
 import type { PreparedServer, RunningServer } from './types.ts'
 import { findFreePort } from './ports.ts'
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-const checkHttp = async (url: string): Promise<boolean> => {
+const checkTcp = async (port: number): Promise<boolean> => {
   return new Promise((resolve) => {
-    const req = request(url, { method: 'GET', timeout: 1000 }, (res) => {
-      res.resume()
-      resolve(Boolean(res.statusCode && res.statusCode < 500))
+    const socket = connect({ host: 'localhost', port }, () => {
+      socket.end()
+      resolve(true)
     })
-    req.on('timeout', () => {
-      req.destroy()
+    socket.setTimeout(1000, () => {
+      socket.destroy()
       resolve(false)
     })
-    req.on('error', () => {
+    socket.on('error', () => {
       resolve(false)
     })
-    req.end()
   })
 }
 
-const stopProcess = async (pid: number | undefined): Promise<void> => {
-  if (!pid) {
+const waitForExit = async (child: ChildProcess, timeout: number): Promise<boolean> => {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return true
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      child.off('exit', handleExit)
+      resolve(false)
+    }, timeout)
+    const handleExit = (): void => {
+      clearTimeout(timer)
+      resolve(true)
+    }
+    child.once('exit', handleExit)
+  })
+}
+
+const stopProcess = async (child: ChildProcess): Promise<void> => {
+  if (!child.pid) {
     return
   }
   try {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/pid', String(pid), '/T', '/F'])
-      return
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'])
+    } else {
+      process.kill(-child.pid, 'SIGTERM')
     }
-    process.kill(-pid, 'SIGTERM')
   } catch {
     // Process may already be gone.
   }
-  await wait(500)
+  if (await waitForExit(child, 500)) {
+    return
+  }
   try {
     if (process.platform !== 'win32') {
-      process.kill(-pid, 'SIGKILL')
+      process.kill(-child.pid, 'SIGKILL')
     }
   } catch {
     // Process may already be gone.
@@ -52,6 +70,7 @@ export const startServer = async (
   const port = await findFreePort(options.portBase)
   const baseUrl = `http://localhost:${port}`
   const url = new URL(options.urlPath, baseUrl).toString()
+  const start = performance.now()
   const child = spawn(prepared.binaryPath, [...(prepared.binaryArgs ?? []), options.workspace], {
     cwd: prepared.packageDir,
     env: { ...process.env, PORT: String(port) },
@@ -59,32 +78,48 @@ export const startServer = async (
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let output = ''
+  const { promise: outputReady, resolve: resolveOutputReady } = Promise.withResolvers<boolean>()
   child.stdout?.on('data', (chunk) => {
     output += String(chunk)
+    if (output.includes('listening on')) {
+      resolveOutputReady(true)
+    }
   })
   child.stderr?.on('data', (chunk) => {
     output += String(chunk)
+    if (output.includes('listening on')) {
+      resolveOutputReady(true)
+    }
   })
   child.on('error', (error) => {
     output += `\n${error.stack || error.message}`
   })
 
-  const start = performance.now()
   while (performance.now() - start < options.timeout) {
-    if (child.exitCode !== null) {
+    if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`Server exited before startup for ${prepared.version}\n${output}`)
     }
-    if (output.includes('listening on') || (await checkHttp(baseUrl))) {
+    const ready = await Promise.race([outputReady, checkTcp(port)])
+    if (ready) {
       return {
         port,
         url,
         process: child,
         startupTimeMs: performance.now() - start,
-        stop: () => stopProcess(child.pid),
+        stop: () => stopProcess(child),
       }
     }
-    await wait(250)
+    const readyDuringWait = await Promise.race([outputReady, wait(10).then(() => false)])
+    if (readyDuringWait) {
+      return {
+        port,
+        url,
+        process: child,
+        startupTimeMs: performance.now() - start,
+        stop: () => stopProcess(child),
+      }
+    }
   }
-  await stopProcess(child.pid)
+  await stopProcess(child)
   throw new Error(`Timed out waiting for server ${prepared.version} on ${baseUrl}\n${output}`)
 }

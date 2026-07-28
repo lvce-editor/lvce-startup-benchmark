@@ -99,7 +99,7 @@ export interface VersionResult {
   readonly version: string
   readonly safeVersion: string
   readonly rawPath: string
-  readonly serverStartupTimeMs: number
+  readonly serverStartupTimesMs: readonly number[]
   readonly results: readonly IterationResult[]
 }
 

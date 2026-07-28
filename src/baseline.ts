@@ -12,6 +12,6 @@ export const getBaselinePreparedServer = (): PreparedServer => {
     safeVersion: baselineVersion,
     packageDir: join(sourceDir, '..'),
     binaryPath: process.execPath,
-    binaryArgs: [join(sourceDir, 'baselineServer.ts')],
+    binaryArgs: [join(sourceDir, 'baselineServer.js')],
   }
 }

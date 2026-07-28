@@ -34,13 +34,13 @@ const secondsToMs = (value: number): number => {
   return Number.isFinite(value) ? value * 1000 : Number.NaN
 }
 
-export const summarizeVersion = (version: string, results: readonly IterationResult[], serverStartupTimeMs: number): VersionSummary => {
+export const summarizeVersion = (version: string, results: readonly IterationResult[], serverStartupTimesMs: readonly number[]): VersionSummary => {
   const measured = successfulMeasured(results)
   return {
     version,
     iterations: measured.length,
     failures: results.filter((result) => !result.success && !result.warmup).length,
-    serverStartupTimeMs: getStats([serverStartupTimeMs]),
+    serverStartupTimeMs: getStats(serverStartupTimesMs),
     loadTimeMs: getStats(measured.map((result) => result.navigation?.loadEventEnd ?? result.wallTimeMs)),
     domContentLoadedTimeMs: getStats(measured.map((result) => result.navigation?.domContentLoadedEventEnd ?? Number.NaN)),
     responseEndTimeMs: getStats(measured.map((result) => result.navigation?.responseEnd ?? Number.NaN)),
