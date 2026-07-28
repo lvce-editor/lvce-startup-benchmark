@@ -41,6 +41,10 @@ export const getServerPackageAlias = (version: string): string => {
 
 export const getServerStorePackageJson = (versions: readonly string[]): string => {
   const dependencies = Object.fromEntries(versions.map((version) => [getServerPackageAlias(version), `npm:${serverPackageName}@${version}`]))
+  return getPackageJson(dependencies)
+}
+
+const getPackageJson = (dependencies: Readonly<Record<string, string>>): string => {
   return `${JSON.stringify(
     {
       private: true,
@@ -50,6 +54,29 @@ export const getServerStorePackageJson = (versions: readonly string[]): string =
     null,
     2,
   )}\n`
+}
+
+const getServerDependencies = (content: string): Readonly<Record<string, string>> => {
+  try {
+    const parsed = JSON.parse(content) as { readonly dependencies?: unknown }
+    if (!parsed.dependencies || typeof parsed.dependencies !== 'object' || Array.isArray(parsed.dependencies)) {
+      return {}
+    }
+    return Object.fromEntries(
+      Object.entries(parsed.dependencies).filter(
+        ([name, value]) => name.startsWith('lvce-server-') && typeof value === 'string' && value.startsWith(`npm:${serverPackageName}@`),
+      ),
+    )
+  } catch {
+    return {}
+  }
+}
+
+export const getServerStoreTransitionPackageJson = (existingContent: string, versions: readonly string[]): string => {
+  const desiredContent = getServerStorePackageJson(versions)
+  const existingDependencies = getServerDependencies(existingContent)
+  const desiredDependencies = getServerDependencies(desiredContent)
+  return getPackageJson({ ...existingDependencies, ...desiredDependencies })
 }
 
 const getPreparedServer = (version: string, storeDir: string): PreparedServer => {
@@ -78,7 +105,22 @@ export const prepareServerPackages = async (
   const packageJsonPath = join(storeDir, 'package.json')
   await mkdir(storeDir, { recursive: true })
 
-  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
+  const desiredPackageJson = getServerStorePackageJson(versions)
+  let existingPackageJson = ''
+  try {
+    existingPackageJson = await readFile(packageJsonPath, 'utf8')
+  } catch {
+    // Missing package manifests are created below.
+  }
+  const transitionPackageJson = getServerStoreTransitionPackageJson(existingPackageJson, versions)
+  if (transitionPackageJson !== desiredPackageJson) {
+    const transitionPackageJsonChanged = await writeFileIfChanged(packageJsonPath, transitionPackageJson)
+    if (transitionPackageJsonChanged) {
+      await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
+    }
+  }
+
+  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, desiredPackageJson)
   const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
   if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
     await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
