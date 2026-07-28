@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { runCommand } from './process.ts'
 import { serverPackageName } from './versions.ts'
@@ -41,10 +41,6 @@ export const getServerPackageAlias = (version: string): string => {
 
 export const getServerStorePackageJson = (versions: readonly string[]): string => {
   const dependencies = Object.fromEntries(versions.map((version) => [getServerPackageAlias(version), `npm:${serverPackageName}@${version}`]))
-  return getPackageJson(dependencies)
-}
-
-const getPackageJson = (dependencies: Readonly<Record<string, string>>): string => {
   return `${JSON.stringify(
     {
       private: true,
@@ -56,27 +52,23 @@ const getPackageJson = (dependencies: Readonly<Record<string, string>>): string 
   )}\n`
 }
 
-const getServerDependencies = (content: string): Readonly<Record<string, string>> => {
-  try {
-    const parsed = JSON.parse(content) as { readonly dependencies?: unknown }
-    if (!parsed.dependencies || typeof parsed.dependencies !== 'object' || Array.isArray(parsed.dependencies)) {
-      return {}
-    }
-    return Object.fromEntries(
-      Object.entries(parsed.dependencies).filter(
-        ([name, value]) => name.startsWith('lvce-server-') && typeof value === 'string' && value.startsWith(`npm:${serverPackageName}@`),
-      ),
-    )
-  } catch {
-    return {}
+export const installServerPackages = async (
+  storeDir: string,
+  run: typeof runCommand = runCommand,
+): Promise<void> => {
+  const install = async (): Promise<void> => {
+    await run('npm', ['install', '--omit=dev'], { cwd: storeDir })
   }
-}
 
-export const getServerStoreTransitionPackageJson = (existingContent: string, versions: readonly string[]): string => {
-  const desiredContent = getServerStorePackageJson(versions)
-  const existingDependencies = getServerDependencies(existingContent)
-  const desiredDependencies = getServerDependencies(desiredContent)
-  return getPackageJson({ ...existingDependencies, ...desiredDependencies })
+  try {
+    await install()
+  } catch {
+    await Promise.all([
+      rm(join(storeDir, 'node_modules'), { recursive: true, force: true }),
+      rm(join(storeDir, 'package-lock.json'), { force: true }),
+    ])
+    await install()
+  }
 }
 
 const getPreparedServer = (version: string, storeDir: string): PreparedServer => {
@@ -105,25 +97,10 @@ export const prepareServerPackages = async (
   const packageJsonPath = join(storeDir, 'package.json')
   await mkdir(storeDir, { recursive: true })
 
-  const desiredPackageJson = getServerStorePackageJson(versions)
-  let existingPackageJson = ''
-  try {
-    existingPackageJson = await readFile(packageJsonPath, 'utf8')
-  } catch {
-    // Missing package manifests are created below.
-  }
-  const transitionPackageJson = getServerStoreTransitionPackageJson(existingPackageJson, versions)
-  if (transitionPackageJson !== desiredPackageJson) {
-    const transitionPackageJsonChanged = await writeFileIfChanged(packageJsonPath, transitionPackageJson)
-    if (transitionPackageJsonChanged) {
-      await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
-    }
-  }
-
-  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, desiredPackageJson)
+  const packageJsonChanged = await writeFileIfChanged(packageJsonPath, getServerStorePackageJson(versions))
   const preparedServers = versions.map((version) => getPreparedServer(version, storeDir))
   if (packageJsonChanged || !(await hasPreparedServers(preparedServers))) {
-    await runCommand('npm', ['install', '--omit=dev'], { cwd: storeDir })
+    await installServerPackages(storeDir)
   }
 
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))
