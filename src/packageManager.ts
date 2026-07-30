@@ -126,12 +126,3 @@ export const prepareServerPackages = async (
 
   return new Map(preparedServers.map((prepared) => [prepared.version, prepared]))
 }
-
-export const prepareServerPackage = async (version: string, rootDir = process.cwd()): Promise<PreparedServer> => {
-  const preparedServers = await prepareServerPackages([version], rootDir)
-  const prepared = preparedServers.get(version)
-  if (!prepared) {
-    throw new Error(`Failed to prepare ${serverPackageName}@${version}`)
-  }
-  return prepared
-}

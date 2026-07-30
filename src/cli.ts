@@ -138,7 +138,7 @@ export const parseArgs = (argv: readonly string[]): BenchmarkOptions => {
   return options
 }
 
-export const getHelpText = (): string => {
+const getHelpText = (): string => {
   return `Usage: npm run benchmark -- [options]
 
 Options:
