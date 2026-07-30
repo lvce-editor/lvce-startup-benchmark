@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/generateCiReport.ts",
+    "src/main.ts",
+    "src/report.ts",
+    "src/resolveBenchmarkVersions.ts",
+    "src/runCiBenchmark.ts",
+    "src/updateVersions.ts",
+    "test/**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.{js,ts}",
+    "test/**/*.ts"
+  ]
+}

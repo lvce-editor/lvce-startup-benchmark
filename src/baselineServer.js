@@ -38,7 +38,7 @@ export const createBaselineServer = () => {
 /**
  * @param {number} port
  */
-export const startBaselineServer = async (port) => {
+const startBaselineServer = async (port) => {
   const server = createBaselineServer()
   const stop = () => {
     server.close(() => undefined)
