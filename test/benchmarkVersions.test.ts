@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { parseBenchmarkVersions } from '../src/benchmarkVersions.ts'
+import { defaultBenchmarkVersionCount, parseBenchmarkVersions } from '../src/benchmarkVersions.ts'
+
+test('uses 200 versions by default', () => {
+  assert.equal(defaultBenchmarkVersionCount, 200)
+})
 
 test('parseBenchmarkVersions reads and trims versions', () => {
   const manifest = parseBenchmarkVersions(JSON.stringify({ versions: [' 1.0.1 ', '1.0.0'] }))
