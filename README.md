@@ -3,7 +3,7 @@
 Benchmark startup performance for published `@lvce-editor/server` versions.
 
 The versions used by the CI benchmark are tracked in `versions.json`. Refresh
-the latest 100 published versions with:
+the latest 200 published versions with:
 
 ```sh
 npm run update-versions
@@ -18,7 +18,7 @@ npm ci
 npx playwright install chromium
 npm run benchmark -- --versions latest --iterations 10 --warmups 1
 npm run benchmark -- --versions 0.84.7,0.84.6 --profile
-npm run benchmark -- --recent-versions 100 --iterations 10
+npm run benchmark -- --recent-versions 200 --iterations 10
 npm run benchmark -- --versions latest --baseline
 ```
 
