@@ -76,14 +76,14 @@ jobs:
         id: report
         if: always()
         run: npm run ci:report
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: lvce-startup-benchmark-results
           path: results/**
       - name: Upload Pages artifact
         if: always() && steps.report.outputs.pages == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: .tmp/pages
 
@@ -97,4 +97,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
