@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { defaultBenchmarkVersionCount, parseBenchmarkVersions } from '../src/benchmarkVersions.ts'
 
-test('uses 200 versions by default', () => {
-  assert.equal(defaultBenchmarkVersionCount, 200)
+test('uses 250 versions by default', () => {
+  assert.equal(defaultBenchmarkVersionCount, 250)
 })
 
 test('parseBenchmarkVersions reads and trims versions', () => {

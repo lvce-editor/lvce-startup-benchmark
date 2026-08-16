@@ -5,7 +5,7 @@ export interface BenchmarkVersions {
   readonly versions: readonly string[]
 }
 
-export const defaultBenchmarkVersionCount = 200
+export const defaultBenchmarkVersionCount = 250
 
 const validateVersions = (value: unknown): readonly string[] => {
   if (!Array.isArray(value) || value.length === 0 || value.some((version) => typeof version !== 'string' || !version.trim())) {

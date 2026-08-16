@@ -13,7 +13,7 @@ on:
       recent_versions:
         description: "Number of versions from versions.json to benchmark"
         required: false
-        default: "200"
+        default: "250"
       iterations:
         description: "Measured iterations per version"
         required: false
@@ -52,7 +52,7 @@ jobs:
         id: benchmark-versions
         env:
           VERSIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.versions || '' }}
-          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '200' }}
+          RECENT_VERSIONS: ${{ github.event.inputs.recent_versions || '250' }}
         run: npm run ci:resolve-versions
       - uses: actions/cache@v5
         id: server-store-cache
