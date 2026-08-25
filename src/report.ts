@@ -2,6 +2,7 @@ import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { baselineVersion } from './baseline.ts'
+import { chartMarkers, type ChartMarker } from './chartMarkers.ts'
 import type { Stats, VersionSummary } from './types.ts'
 import { compareVersions } from './versionOrder.ts'
 
@@ -290,6 +291,35 @@ const renderBaselineLegend = (stats: Stats | undefined): string => {
   <text class="legend" x="938" y="33">Baseline</text>`
 }
 
+const renderChartMarkers = (
+  summaries: readonly VersionSummary[],
+  markers: readonly ChartMarker[],
+  toX: (index: number) => number,
+  top: number,
+  bottom: number,
+): string => {
+  return markers
+    .flatMap((marker) => {
+      const index = summaries.findIndex((summary) => summary.version === marker.version)
+      if (index === -1) {
+        return []
+      }
+      const x = toX(index)
+      const labelX = x + (marker.labelSide === 'before' ? -8 : 8)
+      const textAnchor = marker.labelSide === 'before' ? 'end' : 'start'
+      const accessibleLabel = `${marker.version}: ${marker.label}`
+      return [
+        `<g class="chart-marker">
+  <title>${escapeXml(accessibleLabel)}</title>
+  <line class="marker-line" x1="${x.toFixed(2)}" x2="${x.toFixed(2)}" y1="${top}" y2="${bottom}" />
+  <circle class="marker-dot" cx="${x.toFixed(2)}" cy="${top}" r="4" />
+  <text class="marker-label" x="${labelX.toFixed(2)}" y="84" text-anchor="${textAnchor}">${escapeXml(accessibleLabel)}</text>
+</g>`,
+      ]
+    })
+    .join('\n')
+}
+
 const getXAxisLabels = (summaries: readonly VersionSummary[], left: number, chartWidth: number): string => {
   if (summaries.length === 0) {
     return ''
@@ -311,7 +341,10 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
   const height = 420
   const left = 76
   const right = 34
-  const top = 70
+  const markers = chartMarkers.filter(
+    (marker) => marker.chartFileNames.includes(chart.fileName) && summaries.some((summary) => summary.version === marker.version),
+  )
+  const top = markers.length === 0 ? 70 : 100
   const bottom = 86
   const chartWidth = width - left - right
   const chartHeight = height - top - bottom
@@ -342,9 +375,10 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     latest && latestStats.mean !== null
       ? `${latest.version}: mean ${formatValue(latestStats.mean, chart.unit)}, fastest ${formatValue(latestStats.min, chart.unit)}`
       : 'No data available'
+  const markerDescription = markers.length === 0 ? '' : ` Markers: ${markers.map((marker) => `${marker.version}: ${marker.label}`).join('; ')}.`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(chart.title)}</title>
-  <desc id="desc">Mean and fastest ${escapeXml(chart.title.toLowerCase())} by version.</desc>
+  <desc id="desc">Mean and fastest ${escapeXml(chart.title.toLowerCase())} by version.${escapeXml(markerDescription)}</desc>
   <style>
     .title { fill: #171717; font: 700 24px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     .subtitle, .legend, .axis-label { fill: #5f6b7a; font: 500 13px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
@@ -360,6 +394,9 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     .legend-dot.mean { fill: #246bfe; }
     .legend-dot.fastest { fill: #00856f; }
     .legend-line.baseline { stroke: #d92d20; stroke-width: 2.4; stroke-dasharray: 7 7; }
+    .marker-line { stroke: #b54708; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .marker-dot { fill: #b54708; stroke: #ffffff; stroke-width: 1.5; }
+    .marker-label { fill: #93370d; font: 600 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
   </style>
   <rect width="100%" height="100%" fill="#ffffff" />
   <text x="24" y="32" class="title">${escapeXml(chart.title)}</text>
@@ -375,6 +412,7 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
   ${renderPolyline(meanPoints, 'mean-line')}
   ${renderPolyline(minPoints, 'fastest-line')}
   ${renderBaselineLine(baselineStats, toY, left, right, width)}
+  ${renderChartMarkers(summaries, markers, toX, top, top + chartHeight)}
   ${renderPoints(meanPoints, 'mean-point')}
   ${renderPoints(minPoints, 'fastest-point')}
   ${getXAxisLabels(summaries, left, chartWidth)}

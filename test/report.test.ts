@@ -76,8 +76,21 @@ test('writeReport creates a static pages report from benchmark summaries', async
         serverOpenFileDescriptors: stats(12),
       },
     ]
+    const latestSummary = summaries.find((summary) => summary.version === 'latest')
+    assert.ok(latestSummary)
+    const reportSummaries: readonly VersionSummary[] = [
+      ...summaries,
+      {
+        ...latestSummary,
+        version: '0.99.9',
+      },
+      {
+        ...latestSummary,
+        version: '0.100.24',
+      },
+    ]
     await mkdir(input, { recursive: true })
-    await writeFile(join(input, 'summary.json'), `${JSON.stringify(summaries, null, 2)}\n`)
+    await writeFile(join(input, 'summary.json'), `${JSON.stringify(reportSummaries, null, 2)}\n`)
     await writeFile(join(input, 'summary.md'), '# Summary\n')
     await writeReport({ input, output, title: 'Benchmark Report' })
     const html = await readFile(join(output, 'index.html'), 'utf8')
@@ -90,17 +103,23 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(html, /GPU process memory/)
     assert.match(html, /80 MiB/)
     assert.match(html, /Transfer size/)
-    assert.match(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Server startup/)
-    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Load event/)
-    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Fastest/)
-    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /Baseline/)
-    assert.match(await readFile(join(output, 'load-time.svg'), 'utf8'), /class="baseline-line"/)
+    const serverStartupChart = await readFile(join(output, 'server-startup-time.svg'), 'utf8')
+    const loadTimeChart = await readFile(join(output, 'load-time.svg'), 'utf8')
+    assert.match(serverStartupChart, /Server startup/)
+    assert.doesNotMatch(serverStartupChart, /<g class="chart-marker">/)
+    assert.match(loadTimeChart, /Load event/)
+    assert.match(loadTimeChart, /Fastest/)
+    assert.match(loadTimeChart, /Baseline/)
+    assert.match(loadTimeChart, /class="baseline-line"/)
+    assert.match(loadTimeChart, /0\.99\.9: Cross-Origin-Opener-Policy accidentally disabled/)
+    assert.match(loadTimeChart, /0\.100\.24: Cross-Origin-Opener-Policy enabled again/)
+    assert.match(loadTimeChart, /<g class="chart-marker">/)
     assert.match(await readFile(join(output, 'first-contentful-paint.svg'), 'utf8'), /First contentful paint/)
     assert.match(await readFile(join(output, 'largest-contentful-paint.svg'), 'utf8'), /Largest contentful paint/)
     assert.match(await readFile(join(output, 'gpu-process-memory.svg'), 'utf8'), /GPU process memory/)
     assert.match(await readFile(join(output, 'server-open-file-descriptors.svg'), 'utf8'), /Server open file descriptors/)
     assert.match(await readFile(join(output, 'transfer-size.svg'), 'utf8'), /Total transfer size/)
-    assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(summaries, null, 2)}\n`)
+    assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(reportSummaries, null, 2)}\n`)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
