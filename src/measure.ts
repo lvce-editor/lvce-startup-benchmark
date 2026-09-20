@@ -151,6 +151,11 @@ export const measureStartup = async (
 ): Promise<IterationResult> => {
   const browser = await chromium.launch({ headless: !options.headed })
   const context = await browser.newContext()
+  // Own dialog dismissal so a dialog arriving during teardown cannot leave
+  // Playwright's automatic dismissal with an unhandled protocol rejection.
+  context.on('dialog', (dialog) => {
+    dialog.dismiss().catch(() => undefined)
+  })
   const page = await context.newPage()
   const cdp = await context.newCDPSession(page)
   const tracePath = options.profile && !warmup ? join(options.output, `trace-${safeVersion}-${iteration}.json`) : undefined
