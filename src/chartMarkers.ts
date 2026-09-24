@@ -2,7 +2,6 @@ export interface ChartMarker {
   readonly chartFileNames: readonly string[]
   readonly label: string
   readonly labelSide: 'after' | 'before'
-  readonly pendingLabel?: string
   readonly version: string
 }
 
@@ -36,8 +35,12 @@ export const chartMarkers: readonly ChartMarker[] = [
     chartFileNames: sessionReplayCharts,
     label: 'Session replay player accidentally loaded at startup',
     labelSide: 'before',
-    // Replace this note with a versioned marker once an LVCE release includes renderer-process PR #865.
-    pendingLabel: 'Fix merged: replay player loads on demand (awaiting release)',
     version: '0.113.25',
+  },
+  {
+    chartFileNames: sessionReplayCharts,
+    label: 'Session replay player now loads on demand',
+    labelSide: 'after',
+    version: '0.114.6',
   },
 ]
