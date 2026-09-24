@@ -314,17 +314,12 @@ const renderChartMarkers = (
       const labelX = marker.labelSide === 'before' ? Math.max(left + labelWidth, x - 8) : Math.min(right - labelWidth, x + 8)
       const currentLabelY = labelY
       labelY += 22
-      const pendingLabel = marker.pendingLabel
-        ? `<text class="marker-label pending" x="${left}" y="${labelY}">${escapeXml(marker.pendingLabel)}</text>`
-        : ''
-      if (marker.pendingLabel) labelY += 22
       return [
         `<g class="chart-marker">
   <title>${escapeXml(accessibleLabel)}</title>
   <line class="marker-line" x1="${x.toFixed(2)}" x2="${x.toFixed(2)}" y1="${top}" y2="${bottom}" />
   <circle class="marker-dot" cx="${x.toFixed(2)}" cy="${top}" r="4" />
   <text class="marker-label" x="${labelX.toFixed(2)}" y="${currentLabelY}" text-anchor="${textAnchor}">${escapeXml(accessibleLabel)}</text>
-  ${pendingLabel}
 </g>`,
       ]
     })
@@ -355,7 +350,7 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
   const markers = chartMarkers.filter(
     (marker) => marker.chartFileNames.includes(chart.fileName) && summaries.some((summary) => summary.version === marker.version),
   )
-  const markerRows = markers.reduce((rows, marker) => rows + (marker.pendingLabel ? 2 : 1), 0)
+  const markerRows = markers.length
   const top = 70 + markerRows * 22
   const bottom = 86
   const chartWidth = width - left - right
@@ -387,7 +382,7 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     latest && latestStats.mean !== null
       ? `${latest.version}: mean ${formatValue(latestStats.mean, chart.unit)}, fastest ${formatValue(latestStats.min, chart.unit)}`
       : 'No data available'
-  const markerDescription = markers.length === 0 ? '' : ` Markers: ${markers.map((marker) => `${marker.version}: ${marker.label}${marker.pendingLabel ? `. ${marker.pendingLabel}` : ''}`).join('; ')}.`
+  const markerDescription = markers.length === 0 ? '' : ` Markers: ${markers.map((marker) => `${marker.version}: ${marker.label}`).join('; ')}.`
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title desc">
   <title id="title">${escapeXml(chart.title)}</title>
   <desc id="desc">Mean and fastest ${escapeXml(chart.title.toLowerCase())} by version.${escapeXml(markerDescription)}</desc>
@@ -409,7 +404,6 @@ const renderChart = (summaries: readonly VersionSummary[], chart: ChartDefinitio
     .marker-line { stroke: #b54708; stroke-width: 1.5; stroke-dasharray: 5 4; }
     .marker-dot { fill: #b54708; stroke: #ffffff; stroke-width: 1.5; }
     .marker-label { fill: #93370d; font: 600 11px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    .marker-label.pending { fill: #5f6b7a; }
   </style>
   <rect width="100%" height="100%" fill="#ffffff" />
   <text x="24" y="32" class="title">${escapeXml(chart.title)}</text>

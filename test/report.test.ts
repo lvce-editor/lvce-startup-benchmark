@@ -105,8 +105,10 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(html, /Transfer size/)
     const serverStartupChart = await readFile(join(output, 'server-startup-time.svg'), 'utf8')
     const loadTimeChart = await readFile(join(output, 'load-time.svg'), 'utf8')
+    const heapUsedChart = await readFile(join(output, 'heap-used.svg'), 'utf8')
     assert.match(serverStartupChart, /Server startup/)
     assert.doesNotMatch(serverStartupChart, /<g class="chart-marker">/)
+    assert.doesNotMatch(heapUsedChart, /Session replay player/)
     assert.match(loadTimeChart, /Load event/)
     assert.match(loadTimeChart, /Fastest/)
     assert.match(loadTimeChart, /Baseline/)
@@ -120,6 +122,30 @@ test('writeReport creates a static pages report from benchmark summaries', async
     assert.match(await readFile(join(output, 'server-open-file-descriptors.svg'), 'utf8'), /Server open file descriptors/)
     assert.match(await readFile(join(output, 'transfer-size.svg'), 'utf8'), /Total transfer size/)
     assert.equal(await readFile(join(output, 'summary.json'), 'utf8'), `${JSON.stringify(reportSummaries, null, 2)}\n`)
+
+    const sessionReplaySummaries: readonly VersionSummary[] = [
+      { ...latestSummary, version: '0.113.25' },
+      { ...latestSummary, version: '0.114.6' },
+    ]
+    await writeFile(join(input, 'summary.json'), `${JSON.stringify(sessionReplaySummaries, null, 2)}\n`)
+    await writeReport({ input, output, title: 'Benchmark Report' })
+    const heapUsedWithMarkers = await readFile(join(output, 'heap-used.svg'), 'utf8')
+    assert.match(heapUsedWithMarkers, /0\.113\.25: Session replay player accidentally loaded at startup/)
+    assert.match(heapUsedWithMarkers, /0\.114\.6: Session replay player now loads on demand/)
+    assert.doesNotMatch(heapUsedWithMarkers, /awaiting release/)
+    const introductionMarker = heapUsedWithMarkers.match(/<g class="chart-marker">\s*<title>0\.113\.25:[\s\S]*?<line class="marker-line" x1="([\d.]+)"/)
+    const fixedMarker = heapUsedWithMarkers.match(/<g class="chart-marker">\s*<title>0\.114\.6:[\s\S]*?<line class="marker-line" x1="([\d.]+)"/)
+    assert.ok(introductionMarker?.[1])
+    assert.ok(fixedMarker?.[1])
+    assert.ok(Number(introductionMarker[1]) < Number(fixedMarker[1]))
+    assert.match(heapUsedWithMarkers, /<desc id="desc">[^<]*Markers: 0\.113\.25: Session replay player accidentally loaded at startup; 0\.114\.6: Session replay player now loads on demand\./)
+    assert.doesNotMatch(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Session replay player/)
+
+    await writeFile(join(input, 'summary.json'), `${JSON.stringify([sessionReplaySummaries[0]], null, 2)}\n`)
+    await writeReport({ input, output, title: 'Benchmark Report' })
+    const heapUsedWithIntroductionOnly = await readFile(join(output, 'heap-used.svg'), 'utf8')
+    assert.match(heapUsedWithIntroductionOnly, /0\.113\.25: Session replay player accidentally loaded at startup/)
+    assert.doesNotMatch(heapUsedWithIntroductionOnly, /0\.114\.6: Session replay player now loads on demand/)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
