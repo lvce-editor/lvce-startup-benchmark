@@ -17,6 +17,14 @@ test('selectBenchmarkVersions limits configured versions', () => {
   assert.deepEqual(selection.versions, ['1.0.2', '1.0.1'])
 })
 
+test('selectBenchmarkVersions selects 350 versions from a larger inventory', () => {
+  const versions = Array.from({ length: 400 }, (_, index) => `1.0.${399 - index}`)
+  const selection = selectBenchmarkVersions(versions, { RECENT_VERSIONS: '350' })
+
+  assert.equal(selection.versions.length, 350)
+  assert.deepEqual(selection.versions, versions.slice(0, 350))
+})
+
 test('selectBenchmarkVersions prefers explicit versions', () => {
   const selection = selectBenchmarkVersions(configuredVersions, {
     RECENT_VERSIONS: '1',
