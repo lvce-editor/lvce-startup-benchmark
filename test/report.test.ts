@@ -146,6 +146,31 @@ test('writeReport creates a static pages report from benchmark summaries', async
     const heapUsedWithIntroductionOnly = await readFile(join(output, 'heap-used.svg'), 'utf8')
     assert.match(heapUsedWithIntroductionOnly, /0\.113\.25: Session replay player accidentally loaded at startup/)
     assert.doesNotMatch(heapUsedWithIntroductionOnly, /0\.114\.6: Session replay player now loads on demand/)
+
+    const startupSummaries: readonly VersionSummary[] = [
+      ...sessionReplaySummaries,
+      ...['0.119.23', '0.119.24', '0.121.3', '0.121.4'].map((version) => ({ ...latestSummary, version })),
+    ]
+    await writeFile(join(input, 'summary.json'), `${JSON.stringify(startupSummaries, null, 2)}\n`)
+    await writeReport({ input, output, title: 'Benchmark Report' })
+    const heapWithRuntimeConfig = await readFile(join(output, 'heap-used.svg'), 'utf8')
+    const paintWithBlockingModule = await readFile(join(output, 'first-paint.svg'), 'utf8')
+    const heapExplanation = '0.119.24: Runtime worker configuration moved into HTML and parsed at startup'
+    const paintExplanation = '0.121.4: Renderer module blocks first paint to prevent startup background flash'
+    for (const [chart, explanation] of [[heapWithRuntimeConfig, heapExplanation], [paintWithBlockingModule, paintExplanation]] as const) {
+      assert.ok(chart.includes(`<title>${explanation}</title>`))
+      assert.ok(chart.match(/<desc id="desc">[^<]*<\/desc>/)?.[0].includes(explanation))
+    }
+    assert.match(heapWithRuntimeConfig, /0\.113\.25: Session replay player accidentally loaded at startup/)
+    assert.match(heapWithRuntimeConfig, /0\.114\.6: Session replay player now loads on demand/)
+    assert.ok(!heapWithRuntimeConfig.includes(paintExplanation))
+    assert.ok(!paintWithBlockingModule.includes(heapExplanation))
+    assert.doesNotMatch(await readFile(join(output, 'server-startup-time.svg'), 'utf8'), /Runtime worker configuration|Renderer module blocks/)
+
+    await writeFile(join(input, 'summary.json'), `${JSON.stringify(startupSummaries.filter(({ version }) => version !== '0.119.24' && version !== '0.121.4'), null, 2)}\n`)
+    await writeReport({ input, output, title: 'Benchmark Report' })
+    assert.doesNotMatch(await readFile(join(output, 'heap-used.svg'), 'utf8'), /Runtime worker configuration/)
+    assert.doesNotMatch(await readFile(join(output, 'first-paint.svg'), 'utf8'), /Renderer module blocks/)
   } finally {
     await rm(dir, { recursive: true, force: true })
   }

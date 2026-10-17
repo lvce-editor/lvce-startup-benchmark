@@ -43,4 +43,16 @@ export const chartMarkers: readonly ChartMarker[] = [
     labelSide: 'after',
     version: '0.114.6',
   },
+  {
+    chartFileNames: ['heap-used.svg'],
+    label: 'Runtime worker configuration moved into HTML and parsed at startup',
+    labelSide: 'after',
+    version: '0.119.24',
+  },
+  {
+    chartFileNames: ['first-paint.svg'],
+    label: 'Renderer module blocks first paint to prevent startup background flash',
+    labelSide: 'after',
+    version: '0.121.4',
+  },
 ]
