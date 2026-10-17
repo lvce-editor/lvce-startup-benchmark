@@ -157,7 +157,7 @@ test('writeReport creates a static pages report from benchmark summaries', async
     const paintWithBlockingModule = await readFile(join(output, 'first-paint.svg'), 'utf8')
     const heapExplanation = '0.119.24: Runtime worker configuration moved into HTML and parsed at startup'
     const paintExplanation = '0.121.4: Renderer module blocks first paint to prevent startup background flash'
-    for (const [chart, explanation] of [[heapWithRuntimeConfig, heapExplanation], [paintWithBlockingModule, paintExplanation]]) {
+    for (const [chart, explanation] of [[heapWithRuntimeConfig, heapExplanation], [paintWithBlockingModule, paintExplanation]] as const) {
       assert.ok(chart.includes(`<title>${explanation}</title>`))
       assert.ok(chart.match(/<desc id="desc">[^<]*<\/desc>/)?.[0].includes(explanation))
     }
