@@ -44,6 +44,8 @@ available, so annotations correspond to measured versions.
 CI uploads the raw `results/` directory as an artifact. On `main` pushes, it also
 publishes the generated report to GitHub Pages.
 
+Investigation: [October 2026 main-thread task duration increases](docs/mainthread-task-duration.md).
+
 ## Metrics
 
 - Navigation timing from `performance.getEntriesByType('navigation')`
